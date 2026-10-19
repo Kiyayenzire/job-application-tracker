@@ -6,6 +6,7 @@ import { CountryPicker } from "./CountryPicker";
 export function FilterSidebar({
   activeFilterCount,
   countryOptions,
+  companies = [],
   customFields,
   filters,
   onApply,
@@ -33,7 +34,7 @@ export function FilterSidebar({
       >
         <div className="filter-sidebar-heading">
           <div>
-            <h2>Filter applications</h2>
+            <h2>Filter companies &amp; applications</h2>
             <span className="muted">{activeFilterCount} active</span>
           </div>
           <button className="ghost-button" onClick={onClear} type="button">
@@ -48,10 +49,30 @@ export function FilterSidebar({
         <fieldset className="filter-group">
           <legend>Company &amp; role</legend>
           <label>
+            Company record
+            <select
+              onChange={(event) => onChange("companyId", event.target.value)}
+              value={filters.companyId || ""}
+            >
+              <option value="">All companies</option>
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>{company.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
             Company
             <input
               onChange={(event) => onChange("companyName", event.target.value)}
               value={filters.companyName || ""}
+            />
+          </label>
+          <label>
+            Company research
+            <input
+              onChange={(event) => onChange("companyResearch", event.target.value)}
+              placeholder="Search evidence, notes, or stack"
+              value={filters.companyResearch || ""}
             />
           </label>
           <label>
@@ -136,12 +157,111 @@ export function FilterSidebar({
             </select>
           </label>
           <label>
-            Hiring pattern
+            Vacancy hiring pattern
             <select onChange={(event) => onChange("hiringPattern", event.target.value)} value={filters.hiringPattern || ""}>
               <option value="">All</option>
               <option value="Q4">Q4</option>
               <option value="Q1">Q1</option>
               <option value="Mid-year">Mid-year</option>
+            </select>
+          </label>
+          <label>
+            Outside-EU hiring
+            <select onChange={(event) => onChange("outsideEuHiring", event.target.value)} value={filters.outsideEuHiring || ""}>
+              <option value="">All</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="likely">Likely</option>
+              <option value="unverified">Unverified</option>
+              <option value="local_only">Local-only</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </label>
+          <label>
+            Immigration / relocation support
+            <select onChange={(event) => onChange("relocationSupport", event.target.value)} value={filters.relocationSupport || ""}>
+              <option value="">All</option>
+              <option value="yes">Yes</option>
+              <option value="possible">Possible</option>
+              <option value="no">No</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </label>
+          <label>
+            Current location requirement
+            <select onChange={(event) => onChange("locationRequirement", event.target.value)} value={filters.locationRequirement || ""}>
+              <option value="">All</option>
+              <option value="outside_eu_accepted">Outside-EU accepted</option>
+              <option value="eu_only">EU only</option>
+              <option value="germany_only">Germany only</option>
+              <option value="local_only">Local only</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </label>
+          <label>
+            Speculative application
+            <select onChange={(event) => onChange("speculativeCompanyApplication", event.target.value)} value={filters.speculativeCompanyApplication || ""}>
+              <option value="">All</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>
+            Company priority
+            <select onChange={(event) => onChange("companyPriority", event.target.value)} value={filters.companyPriority || ""}>
+              <option value="">All</option>
+              <option value="A">A — High priority</option>
+              <option value="B">B — Strong target</option>
+              <option value="C">C — Speculative</option>
+              <option value="avoid">Avoid</option>
+            </select>
+          </label>
+          <label>
+            Minimum tech stack match
+            <input
+              max="100"
+              min="0"
+              onChange={(event) => onChange("techStackMatchMin", event.target.value)}
+              type="number"
+              value={filters.techStackMatchMin || ""}
+            />
+          </label>
+          <label>
+            Speculative contact status
+            <select onChange={(event) => onChange("speculativeContactStatus", event.target.value)} value={filters.speculativeContactStatus || ""}>
+              <option value="">All</option>
+              <option value="not_contacted">Not contacted</option>
+              <option value="preparing">Preparing</option>
+              <option value="sent">Sent</option>
+              <option value="reply_received">Reply received</option>
+              <option value="considering">Considering</option>
+              <option value="interested">Interested in future</option>
+              <option value="not_interested">Not interested</option>
+              <option value="local_only">Explicitly EU/local only</option>
+              <option value="follow_up">Follow-up needed</option>
+            </select>
+          </label>
+          <label>
+            Company hiring pattern
+            <select onChange={(event) => onChange("companyHiringPattern", event.target.value)} value={filters.companyHiringPattern || ""}>
+              <option value="">All</option>
+              <option value="year_round">Year-round</option>
+              <option value="Q4-Q1">Q4-Q1</option>
+              <option value="Q1-Q2">Q1-Q2</option>
+              <option value="Q2-Q3">Q2-Q3</option>
+              <option value="Q3-Q4">Q3-Q4</option>
+              <option value="irregular">Irregular</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </label>
+          <label>
+            Work arrangement
+            <select onChange={(event) => onChange("companyWorkArrangement", event.target.value)} value={filters.companyWorkArrangement || ""}>
+              <option value="">All</option>
+              <option value="remote">Remote</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="office">Office</option>
+              <option value="flexible">Flexible / varies</option>
+              <option value="unknown">Unknown</option>
             </select>
           </label>
           <label>

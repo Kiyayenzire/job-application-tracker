@@ -2,7 +2,7 @@
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from django.db.models import Q
+from django.db.models import Count, Q
 from rest_framework import permissions, status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.authtoken.models import Token
@@ -21,30 +21,39 @@ from .serializers import (
 
 
 DEFAULT_REQUIREMENTS = [
-    "python",
+    "Python",
     "Django",
-    "react",
-    "linux",
-    "postgresql",
-    "mysql",
-    "mongo db",
-    "neo4j",
-    "Graphql",
-    "sql",
-    "js",
-    "css",
-    "docker",
-    "aws",
-    "gcp",
-    "azure",
-    "kubernates",
-    "git",
-    "ci/cd",
-    "agile",
-    "scrum",
-    "devops",
-    "documentation",
-    "testing",
+    "Django REST Framework",
+    "FastAPI",
+    "React",
+    "JavaScript",
+    "TypeScript",
+    "HTML/CSS",
+    "PostgreSQL",
+    "MySQL",
+    "SQL",
+    "Redis",
+    "REST API",
+    "Docker",
+    "Kubernetes",
+    "AWS",
+    "GCP",
+    "Azure",
+    "Linux",
+    "CI/CD",
+    "GitHub Actions",
+    "Terraform",
+    "Kafka",
+    "Celery",
+    "MongoDB",
+    "Neo4j",
+    "GraphQL",
+    "Git",
+    "Agile",
+    "Scrum",
+    "DevOps",
+    "Documentation",
+    "Testing",
 ]
 
 
@@ -149,7 +158,9 @@ class CompanyViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Company.objects.filter(owner=self.request.user)
+        return Company.objects.filter(owner=self.request.user).annotate(
+            application_count=Count("applications"),
+        ).order_by("name", "id")
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)

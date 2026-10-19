@@ -3,8 +3,11 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from applications.models import Company
-from applications.tests.factories import application_values, create_user
+from applications.tests.factories import (
+    application_values,
+    create_company,
+    create_user,
+)
 
 
 class CompanyApiTests(TestCase):
@@ -15,7 +18,7 @@ class CompanyApiTests(TestCase):
 
     def test_creates_and_lists_private_company_research(self):
         other_user = create_user(username="other-company-owner")
-        Company.objects.create(owner=other_user, name="Private Company")
+        create_company(other_user, name="Private Company")
         payload = {
             "name": "Entrix",
             "country": "de",
@@ -36,8 +39,8 @@ class CompanyApiTests(TestCase):
         self.assertEqual(listed.data["results"][0]["name"], "Entrix")
 
     def test_links_application_to_owned_company_and_reuses_company_name(self):
-        company = Company.objects.create(
-            owner=self.user,
+        company = create_company(
+            self.user,
             name="Entrix",
             country="de",
             outside_eu_hiring="likely",
@@ -58,9 +61,50 @@ class CompanyApiTests(TestCase):
         self.assertEqual(response.data["company_name"], "Entrix")
         self.assertEqual(response.data["company_data"]["outside_eu_hiring"], "likely")
 
+    def test_company_list_includes_linked_application_count(self):
+        company = create_company(self.user, name="Entrix")
+        application = self.client.post(
+            reverse("applications-list"),
+            {
+                **application_values(),
+                "company": company.id,
+                "applied_on": application_values()["applied_on"].isoformat(),
+            },
+            format="json",
+        )
+
+        listed = self.client.get(reverse("companies-list"))
+
+        self.assertEqual(application.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(listed.data["results"][0]["application_count"], 1)
+
+    def test_renaming_company_updates_its_linked_application_display_name(self):
+        company = create_company(self.user, name="Entrix")
+        application = self.client.post(
+            reverse("applications-list"),
+            {
+                **application_values(),
+                "company": company.id,
+                "applied_on": application_values()["applied_on"].isoformat(),
+            },
+            format="json",
+        )
+
+        updated = self.client.patch(
+            reverse("companies-detail", args=[company.id]),
+            {"name": "Entrix GmbH"},
+            format="json",
+        )
+        refreshed_application = self.client.get(
+            reverse("applications-detail", args=[application.data["id"]]),
+        )
+
+        self.assertEqual(updated.status_code, status.HTTP_200_OK)
+        self.assertEqual(refreshed_application.data["company_name"], "Entrix GmbH")
+
     def test_rejects_linking_to_another_users_company(self):
         other_user = create_user(username="foreign-company-owner")
-        company = Company.objects.create(owner=other_user, name="Private Company")
+        company = create_company(other_user, name="Private Company")
         payload = {
             **application_values(),
             "company": company.id,
@@ -73,7 +117,7 @@ class CompanyApiTests(TestCase):
         self.assertIn("company", response.data)
 
     def test_rejects_duplicate_company_names_for_the_same_owner(self):
-        Company.objects.create(owner=self.user, name="Entrix")
+        create_company(self.user, name="Entrix")
 
         response = self.client.post(
             reverse("companies-list"),

@@ -36,6 +36,10 @@ export function filterApplications(applications, filters, customFields = []) {
   const jobTitle = filters.jobTitle?.trim().toLocaleLowerCase();
   const keyword = filters.keyword?.trim().toLocaleLowerCase();
   const requirement = filters.requirement?.trim().toLocaleLowerCase();
+  const companyStackMinimum = filters.techStackMatchMin === "" || filters.techStackMatchMin == null
+    ? null
+    : Number(filters.techStackMatchMin);
+  const companyResearch = filters.companyResearch?.trim().toLocaleLowerCase();
   const activeCustomFilters = customFields.filter(
     (field) => field.is_filterable !== false && filters[`custom_${field.key}`] !== "" && filters[`custom_${field.key}`] != null,
   );
@@ -47,6 +51,20 @@ export function filterApplications(applications, filters, customFields = []) {
       return false;
     }
 
+    if (filters.companyId && String(application.company) !== String(filters.companyId)) {
+      return false;
+    }
+
+    if (companyResearch) {
+      const companyText = [
+        application.company_data?.outside_eu_evidence,
+        application.company_data?.company_notes,
+        application.company_data?.primary_stack_match?.join(" "),
+        application.company_data?.next_hiring_window,
+      ].join(" ").toLocaleLowerCase();
+      if (!companyText.includes(companyResearch)) return false;
+    }
+
     if (jobTitle && !application.job_title?.toLocaleLowerCase().includes(jobTitle)) {
       return false;
     }
@@ -54,6 +72,44 @@ export function filterApplications(applications, filters, customFields = []) {
     if (keyword && !(application.keywords || []).join(" ").toLocaleLowerCase().includes(keyword)) {
       return false;
     }
+
+    if (
+      filters.outsideEuHiring
+      && application.company_data?.outside_eu_hiring !== filters.outsideEuHiring
+    ) return false;
+    if (
+      filters.companyPriority
+      && application.company_data?.priority !== filters.companyPriority
+    ) return false;
+    if (
+      filters.speculativeContactStatus
+      && application.company_data?.speculative_contact_status !== filters.speculativeContactStatus
+    ) return false;
+    if (
+      filters.companyHiringPattern
+      && application.company_data?.hiring_pattern !== filters.companyHiringPattern
+    ) return false;
+    if (
+      filters.relocationSupport
+      && application.company_data?.relocation_support !== filters.relocationSupport
+    ) return false;
+    if (
+      filters.locationRequirement
+      && application.company_data?.location_requirement !== filters.locationRequirement
+    ) return false;
+    if (
+      filters.companyWorkArrangement
+      && application.company_data?.work_arrangement !== filters.companyWorkArrangement
+    ) return false;
+    if (
+      filters.speculativeCompanyApplication
+      && String(application.company_data?.speculative_application)
+        !== filters.speculativeCompanyApplication
+    ) return false;
+    if (companyStackMinimum != null && (
+      application.company_data?.tech_stack_match == null
+      || application.company_data.tech_stack_match < companyStackMinimum
+    )) return false;
 
     if (searchText) {
       const searchableText = [

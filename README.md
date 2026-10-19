@@ -1,6 +1,21 @@
 # Job Applications Tracker
 
-Excel-like tracker for job applications, built with Django, React, MySQL, Git, and Docker.
+Tracker for company research and job applications, built with Django, React, MySQL, Git, and Docker.
+
+## Company Research and Applications
+
+Companies are user-owned records separate from individual vacancies. Record
+outside-EU hiring eligibility and its evidence, relocation support, location
+requirements, speculative outreach status, priority, a 0-100 stack-fit score,
+primary technologies, hiring cycle, next hiring window, language, work
+arrangement, and company-level notes once per company. The company list shows
+linked application counts. A company can have any number of vacancy/application
+records; company research stays attached and is reused across them.
+
+Create a company first, then select it when adding a vacancy or application.
+Existing application records are linked to a company with the same owner and
+name when the company migration runs; the existing company name and country are
+retained. Company and application data remain private to the signed-in user.
 
 The tracker records whether an application is for a current vacancy or a
 speculative approach. For speculative applications, it captures the employer's
@@ -11,12 +26,18 @@ is shown as Apply now, Target, Re-contact later, or Remove for now.
 These strategy fields are additions to the existing application record. The
 form and table continue to include company, job title, keywords, URL, applied
 date, English and German requirements, other job requirements, application
-type, status, salary, and notes. Add and save application details before
-searching the list. The list view includes a sidebar for country, company, job
-title, keyword, requirements, application dates, status, vacancy and outreach
-strategy, salary range, and configured filterable custom fields. Select **Apply
-filters** to run a search; editing filter values alone does not change the
-results. Country can be entered on an application and used to filter the list.
+type, status, salary, and notes. The requirements list includes Python, Django,
+Django REST Framework, FastAPI, React, JavaScript/TypeScript, SQL databases,
+Docker, cloud providers, Kubernetes, and CI/CD tooling; saved custom
+requirements remain available when editing an application.
+
+The application sidebar filters saved vacancies by company, vacancy details,
+dates, status, outreach strategy, salary, and configured application custom
+fields. Company filters include outside-EU hiring, location/relocation
+eligibility, speculative contact status, priority, tech-stack match, hiring
+pattern, and work arrangement. Select **Apply filters** to run a search;
+editing filter values alone does not change the results. Country can be
+recorded on both company and vacancy records and used to filter applications.
 
 ## Flexible Tracking Fields
 

@@ -22,6 +22,7 @@ from .models import (
 
 class CompanySerializer(serializers.ModelSerializer):
     owner = serializers.PrimaryKeyRelatedField(read_only=True)
+    application_count = serializers.IntegerField(read_only=True, default=0)
     tech_stack_match = serializers.IntegerField(
         min_value=0,
         max_value=100,
@@ -39,6 +40,7 @@ class CompanySerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "owner",
+            "application_count",
             "name",
             "country",
             "outside_eu_hiring",

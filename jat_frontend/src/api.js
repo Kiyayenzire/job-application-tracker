@@ -36,6 +36,41 @@ export async function listApplications() {
   return Array.isArray(data) ? data : data.results;
 }
 
+export async function listCompanies() {
+  const response = await fetch(`${API_BASE_URL}/api/companies/`, { headers: authHeaders() });
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw Object.assign(new Error(data.detail || "Unable to load companies"), { details: data });
+  }
+  return Array.isArray(data) ? data : data.results;
+}
+
+export async function createCompany(payload) {
+  const response = await fetch(`${API_BASE_URL}/api/companies/`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw Object.assign(new Error(data.detail || "Unable to save company"), { details: data });
+  }
+  return data;
+}
+
+export async function updateCompany(id, payload) {
+  const response = await fetch(`${API_BASE_URL}/api/companies/${id}/`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw Object.assign(new Error(data.detail || "Unable to update company"), { details: data });
+  }
+  return data;
+}
+
 export async function listCountries() {
   const response = await fetch(`${API_BASE_URL}/api/countries/`);
   const data = await parseJsonResponse(response);

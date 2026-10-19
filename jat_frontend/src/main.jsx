@@ -5,28 +5,35 @@ import { LogOut, Plus, RefreshCw, Settings2 } from "lucide-react";
 
 import {
   createApplication,
+  createCompany,
   createCustomField,
   deleteApplication,
   deleteCustomField,
   fetchCurrentUser,
   fetchTrackingProfile,
   listApplications,
+  listCompanies,
   listCustomFields,
   listCountries,
   updateApplication,
+  updateCompany,
   updateTrackingProfile,
 } from "./api";
 import { ApplicationForm } from "./components/ApplicationForm";
 import { ApplicationTable } from "./components/ApplicationTable";
+import { CompanyForm } from "./components/CompanyForm";
+import { CompanyTable } from "./components/CompanyTable";
 import { CreateAccountPage } from "./components/CreateAccountPage";
 import { CustomFieldManager } from "./components/CustomFieldManager";
 import { FilterSidebar } from "./components/FilterSidebar";
 import { LoginPage } from "./components/LoginPage";
 import "./styles.css";
+import { filterCompanies } from "./utils/filterCompanies";
 import { filterApplications } from "./utils/filterApplications";
 
 function App() {
   const [applications, setApplications] = React.useState([]);
+  const [companies, setCompanies] = React.useState([]);
   const [countryOptions, setCountryOptions] = React.useState([]);
   const [customFields, setCustomFields] = React.useState([]);
   const [profile, setProfile] = React.useState({ profession_template: "" });
@@ -34,10 +41,14 @@ function App() {
   const [error, setError] = React.useState("");
   const [formOpen, setFormOpen] = React.useState(false);
   const [editingApplication, setEditingApplication] = React.useState(null);
+  const [companyFormOpen, setCompanyFormOpen] = React.useState(false);
+  const [editingCompany, setEditingCompany] = React.useState(null);
   const [filters, setFilters] = React.useState({
     dateFrom: "",
     dateTo: "",
     status: "",
+    companyId: "",
+    companyResearch: "",
     salaryMin: "",
     salaryMax: "",
     searchText: "",
@@ -50,6 +61,15 @@ function App() {
     applicationType: "",
     outsideEuResponse: "",
     hiringPattern: "",
+    outsideEuHiring: "",
+    companyPriority: "",
+    techStackMatchMin: "",
+    speculativeContactStatus: "",
+    companyHiringPattern: "",
+    relocationSupport: "",
+    locationRequirement: "",
+    companyWorkArrangement: "",
+    speculativeCompanyApplication: "",
   });
   const [filterDrafts, setFilterDrafts] = React.useState(filters);
   const [user, setUser] = React.useState(null);
@@ -62,13 +82,15 @@ function App() {
     setLoading(true);
     setError("");
     try {
-      const [nextApplications, nextCustomFields, nextProfile, nextCountryOptions] = await Promise.all([
+      const [nextApplications, nextCompanies, nextCustomFields, nextProfile, nextCountryOptions] = await Promise.all([
         listApplications(),
+        listCompanies(),
         listCustomFields(),
         fetchTrackingProfile(),
         listCountries(),
       ]);
       setApplications(nextApplications);
+      setCompanies(nextCompanies);
       setCustomFields(nextCustomFields);
       setProfile(nextProfile);
       setCountryOptions(nextCountryOptions);
@@ -128,13 +150,41 @@ function App() {
     if (editingApplication) {
       const updated = await updateApplication(editingApplication.id, payload);
       setApplications((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setCompanies((current) => current.map((company) => {
+        const wasLinked = String(editingApplication.company) === String(company.id);
+        const isLinked = String(updated.company) === String(company.id);
+        if (wasLinked === isLinked) return company;
+        return {
+          ...company,
+          application_count: Math.max(0, (company.application_count || 0) + (isLinked ? 1 : -1)),
+        };
+      }));
     } else {
       const created = await createApplication(payload);
       setApplications((current) => [created, ...current]);
+      setCompanies((current) => current.map((company) => (
+        String(company.id) === String(created.company)
+          ? { ...company, application_count: (company.application_count || 0) + 1 }
+          : company
+      )));
     }
 
     setEditingApplication(null);
     setFormOpen(false);
+  }
+
+  async function handleSaveCompany(payload) {
+    if (editingCompany) {
+      const updated = await updateCompany(editingCompany.id, payload);
+      setCompanies((current) => current.map((item) => item.id === updated.id ? updated : item));
+      const nextApplications = await listApplications();
+      setApplications(nextApplications);
+    } else {
+      const created = await createCompany(payload);
+      setCompanies((current) => [...current, created].sort((left, right) => left.name.localeCompare(right.name)));
+    }
+    setEditingCompany(null);
+    setCompanyFormOpen(false);
   }
 
   function handleEdit(application) {
@@ -183,6 +233,10 @@ function App() {
     () => filterApplications(applications, filters, customFields),
     [applications, filters, customFields],
   );
+  const filteredCompanies = React.useMemo(
+    () => filterCompanies(companies, filters),
+    [companies, filters],
+  );
   const hasActiveFilters = Object.values(filters).some((value) => value !== "" && value != null);
   const activeFilterCount = Object.values(filters).filter((value) => value !== "" && value != null).length;
 
@@ -199,6 +253,8 @@ function App() {
       dateFrom: "",
       dateTo: "",
       status: "",
+      companyId: "",
+      companyResearch: "",
       salaryMin: "",
       salaryMax: "",
       searchText: "",
@@ -211,6 +267,15 @@ function App() {
       applicationType: "",
       outsideEuResponse: "",
       hiringPattern: "",
+      outsideEuHiring: "",
+      companyPriority: "",
+      techStackMatchMin: "",
+      speculativeContactStatus: "",
+      companyHiringPattern: "",
+      relocationSupport: "",
+      locationRequirement: "",
+      companyWorkArrangement: "",
+      speculativeCompanyApplication: "",
       ...Object.fromEntries(customFields.map((field) => [`custom_${field.key}`, ""])),
     };
     setFilters(clearedFilters);
@@ -251,7 +316,7 @@ function App() {
       <header className="topbar">
         <div>
           <h1>Job Applications</h1>
-          <p>{applications.length} tracked applications</p>
+          <p>{companies.length} companies · {applications.length} tracked applications</p>
         </div>
         <div className="actions">
           <button className="icon-button" onClick={load} title="Refresh applications" type="button">
@@ -295,12 +360,58 @@ function App() {
         <section aria-label="Application list" className="application-results">
           <div className="application-list-toolbar">
             <div>
-              <h2>Tracked applications</h2>
-              <p className="muted">Add job details first, then use the filters to find them.</p>
+              <h2>Company research</h2>
+              <p className="muted">Record company eligibility and hiring research once, then link vacancies to it.</p>
             </div>
             <button
               className="primary-button"
               disabled={loading || countryOptions.length === 0}
+              onClick={() => {
+                setEditingCompany(null);
+                setCompanyFormOpen(true);
+              }}
+              type="button"
+            >
+              <Plus size={18} />
+              Add company
+            </button>
+          </div>
+          {companyFormOpen && (
+            <CompanyForm
+              company={editingCompany}
+              countryOptions={countryOptions}
+              onCancel={() => {
+                setEditingCompany(null);
+                setCompanyFormOpen(false);
+              }}
+              onSave={handleSaveCompany}
+            />
+          )}
+          {loading ? (
+            <div className="loading">Loading companies...</div>
+          ) : (
+            <CompanyTable
+              companies={filteredCompanies}
+              countryOptions={countryOptions}
+              emptyMessage={
+                companies.length > 0 && filteredCompanies.length === 0
+                  ? "No companies match these filters."
+                  : undefined
+              }
+              onEdit={(company) => {
+                setEditingCompany(company);
+                setCompanyFormOpen(true);
+              }}
+            />
+          )}
+          <div className="application-list-toolbar job-list-toolbar">
+            <div>
+              <h2>Vacancies &amp; applications</h2>
+              <p className="muted">Track individual jobs and their application status.</p>
+            </div>
+            <button
+              className="primary-button"
+              disabled={loading || companies.length === 0}
               onClick={() => {
                 setEditingApplication(null);
                 setFormOpen(true);
@@ -308,11 +419,15 @@ function App() {
               type="button"
             >
               <Plus size={18} />
-              Add new application
+              Add vacancy / application
             </button>
           </div>
+          {companies.length === 0 && (
+            <p className="muted">Add a company before recording its vacancies or applications.</p>
+          )}
           {formOpen && (
             <ApplicationForm
+              companies={companies}
               countryOptions={countryOptions}
               customFields={customFields}
               initialValues={editingApplication}
@@ -345,6 +460,7 @@ function App() {
           countryOptions={countryOptions}
           customFields={customFields}
           filters={filterDrafts}
+          companies={companies}
           onApply={applyFilters}
           onChange={updateFilter}
           onClear={clearFilters}

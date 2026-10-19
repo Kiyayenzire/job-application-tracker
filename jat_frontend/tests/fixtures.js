@@ -6,6 +6,7 @@ import { getNextStep } from "../src/utils/applicationForm.js";
 export const test = base.extend({
   authenticatedPage: async ({ page }, use) => {
     let customFields = [];
+    let companies = [];
     let profile = { profession_template: "" };
     await page.addInitScript(() => {
       localStorage.setItem("authToken", "e2e-test-token");
@@ -25,6 +26,35 @@ export const test = base.extend({
         ],
       }),
     );
+    await page.route("**/api/companies/**", async (route) => {
+      const request = route.request();
+      if (request.method() === "GET") {
+        await route.fulfill({ json: { results: companies } });
+        return;
+      }
+      if (request.method() === "POST") {
+        const payload = request.postDataJSON();
+        const company = {
+          ...payload,
+          id: companies.length + 1,
+          owner: 1,
+          application_count: 0,
+        };
+        companies = [...companies, company];
+        await route.fulfill({ status: 201, json: company });
+        return;
+      }
+      if (request.method() === "PUT") {
+        const id = Number(new URL(request.url()).pathname.split("/").filter(Boolean).pop());
+        const payload = request.postDataJSON();
+        companies = companies.map((company) => company.id === id
+          ? { ...company, ...payload }
+          : company);
+        await route.fulfill({ json: companies.find((company) => company.id === id) });
+        return;
+      }
+      await route.fulfill({ status: 405, json: { detail: "Method not allowed." } });
+    });
     await page.route("**/api/applications/", async (route) => {
       if (route.request().method() === "GET") {
         await route.fulfill({ json: { results: [] } });
@@ -33,10 +63,14 @@ export const test = base.extend({
 
       if (route.request().method() === "POST") {
         const submitted = route.request().postDataJSON();
+        const company = companies.find((item) => item.id === submitted.company);
+        if (company) company.application_count += 1;
         await route.fulfill({
           status: 201,
           json: createApplication({
             ...submitted,
+            company_name: company?.name || submitted.company_name,
+            company_data: company || null,
             id: 1,
             no: 1,
             approach: submitted.vacancy_status === "none" ? "Speculative" : "Apply now",

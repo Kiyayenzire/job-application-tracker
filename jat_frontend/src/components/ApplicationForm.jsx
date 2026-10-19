@@ -16,6 +16,7 @@ const noCustomFields = Object.freeze([]);
 
 const initialForm = {
   country: "de",
+  company: "",
   vacancy_status: "current",
   outside_eu_response: "",
   hiring_pattern: "",
@@ -41,6 +42,7 @@ const initialForm = {
 
 export function ApplicationForm({
   countryOptions = countries,
+  companies = [],
   customFields = noCustomFields,
   initialValues,
   onCancel,
@@ -58,7 +60,7 @@ export function ApplicationForm({
   const canSubmit = canSubmitApplication({
     keywords,
     otherRequirements: form.other_requirements,
-  }) && isVacancyDetailsComplete({
+  }) && Boolean(form.company) && isVacancyDetailsComplete({
     vacancyStatus: form.vacancy_status,
     outsideEUResponse: form.outside_eu_response,
     hiringPattern: form.hiring_pattern,
@@ -108,7 +110,14 @@ export function ApplicationForm({
     setSaving(true);
     setError("");
     try {
-      await onSave(buildApplicationPayload(form, customFields));
+      const payload = buildApplicationPayload(form, customFields);
+      if (form.company) {
+        payload.company = Number(form.company);
+        payload.company_name = companies.find(
+          (company) => company.id === Number(form.company),
+        )?.name || "";
+      }
+      await onSave(payload);
     } catch (err) {
       setError(formatError(err.details) || err.message);
     } finally {
@@ -119,6 +128,28 @@ export function ApplicationForm({
   return (
     <form aria-label="Application details" className="editor" onSubmit={submit}>
       <div className="editor-grid">
+        <label>
+          Company
+          <select
+            onChange={(event) => {
+              const selectedCompany = companies.find(
+                (company) => company.id === Number(event.target.value),
+              );
+              setForm((current) => ({
+                ...current,
+                company: event.target.value,
+                ...(selectedCompany ? { country: selectedCompany.country } : {}),
+              }));
+            }}
+            required
+            value={form.company}
+          >
+            <option value="">Select company</option>
+            {companies.map((company) => (
+              <option key={company.id} value={company.id}>{company.name}</option>
+            ))}
+          </select>
+        </label>
         <CountryPicker
           countries={countryOptions}
           label="Country"
@@ -135,10 +166,11 @@ export function ApplicationForm({
             <option value="none">No vacancy</option>
           </select>
         </label>
-        <label>
-          Company Name
-          <input required value={form.company_name} onChange={(event) => updateField("company_name", event.target.value)} />
-        </label>
+        {form.company && (
+          <p className="muted linked-company-note">
+            Company-level research is stored once on the selected company record.
+          </p>
+        )}
         <label>
           Job title / position applied for
           <input required value={form.job_title} onChange={(event) => updateField("job_title", event.target.value)} />
@@ -251,7 +283,7 @@ export function ApplicationForm({
       <fieldset>
         <legend>Requirements - Other</legend>
         <div className="checkbox-grid">
-          {requirementOptions.map((option) => (
+          {[...new Set([...requirementOptions, ...form.other_requirements])].map((option) => (
             <label className="checkbox" key={option}>
               <input
                 checked={form.other_requirements.includes(option)}
@@ -343,6 +375,7 @@ function buildFormState(initialValues, customFields) {
   return {
     ...initialForm,
     ...initialValues,
+    company: initialValues.company == null ? "" : String(initialValues.company),
     salary_min: initialValues.salary_min ?? "",
     salary_max: initialValues.salary_max ?? "",
     outside_eu_response: initialValues.outside_eu_response || "",
