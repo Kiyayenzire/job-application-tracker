@@ -1,0 +1,16 @@
+services:
+  backend:
+    build:
+      context: ./jat_backend
+      args:
+        REQUIREMENTS_FILE: requirements/test.txt
+    env_file:
+      - .env.dev
+    environment:
+      DJANGO_ENV: test
+      DJANGO_SECRET_KEY: test-only-secret-key-not-for-production
+      DJANGO_DEBUG: "false"
+      RUN_MIGRATIONS: "false"
+    command: pytest
+    volumes:
+      - ./jat_backend:/app
