@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-from applications.models import Application, CustomFieldDefinition
+from applications.models import Application, Company, CustomFieldDefinition
 
 
 def application_values(**overrides):
@@ -53,6 +53,20 @@ def create_application(owner, **overrides):
     application = build_application(owner=owner, **overrides)
     application.save()
     return application
+
+
+def create_company(owner, **overrides):
+    values = {
+        "owner": owner,
+        "name": "Acme GmbH",
+        "country": "de",
+        "outside_eu_hiring": Company.OutsideEUHiring.UNVERIFIED,
+        "priority": Company.Priority.B,
+        "tech_stack_match": None,
+        "primary_stack_match": [],
+    }
+    values.update(overrides)
+    return Company.objects.create(**values)
 
 
 def create_custom_field(owner, **overrides):

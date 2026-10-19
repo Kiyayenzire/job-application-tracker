@@ -196,9 +196,18 @@ class Company(models.Model):
 
     def save(self, *args, **kwargs):
         self.name = self.name.strip()
-        super().save(*args, **kwargs)
+        previous_name = None
         if self.pk:
-            self.applications.update(company_name=self.name)
+            previous_name = type(self).objects.filter(pk=self.pk).values_list(
+                "name",
+                flat=True,
+            ).first()
+        super().save(*args, **kwargs)
+        if previous_name is not None and previous_name != self.name:
+            self.applications.update(
+                company_name=self.name,
+                updated_at=timezone.now(),
+            )
 
 
 class Application(models.Model):

@@ -120,4 +120,5 @@ class ApplicationApiTests(TestCase):
         self.assertIn({"code": "ua", "name": "Ukraine"}, countries.data)
         self.assertIn({"code": "us", "name": "United States"}, countries.data)
         self.assertGreater(len(countries.data), 200)
-        self.assertIn("docker", requirements.data["other_requirements"])
+        self.assertIn("Docker", requirements.data["other_requirements"])
+        self.assertIn("Django REST Framework", requirements.data["other_requirements"])

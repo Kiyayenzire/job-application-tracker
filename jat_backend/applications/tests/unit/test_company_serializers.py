@@ -29,7 +29,7 @@ class CompanySerializerTests(TestCase):
             "next_hiring_window": "Nov 2026-Feb 2027",
             "company_notes": "Monitor closely.",
             "language_requirement": "English",
-            "work_arrangement": "Hybrid",
+            "work_arrangement": "hybrid",
             "relocation_required": False,
         }
 

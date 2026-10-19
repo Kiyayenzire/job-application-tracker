@@ -123,4 +123,41 @@ describe("filterApplications", () => {
         .map((application) => application.id),
     ).toEqual([1]);
   });
+
+  it("filters applications by linked company eligibility, priority, and stack match", () => {
+    const applications = [
+      createApplication({
+        id: 1,
+        company_data: {
+          outside_eu_hiring: "likely",
+          priority: "A",
+          tech_stack_match: 85,
+        },
+      }),
+      createApplication({
+        id: 2,
+        company_data: {
+          outside_eu_hiring: "local_only",
+          priority: "A",
+          tech_stack_match: 95,
+        },
+      }),
+      createApplication({
+        id: 3,
+        company_data: {
+          outside_eu_hiring: "likely",
+          priority: "B",
+          tech_stack_match: 60,
+        },
+      }),
+    ];
+
+    expect(
+      filterApplications(applications, {
+        outsideEuHiring: "likely",
+        companyPriority: "A",
+        techStackMatchMin: "75",
+      }).map((application) => application.id),
+    ).toEqual([1]);
+  });
 });
