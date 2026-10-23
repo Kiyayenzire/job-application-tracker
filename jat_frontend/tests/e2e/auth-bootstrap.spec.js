@@ -27,7 +27,7 @@ test("preserves a saved session during a temporary auth check failure", async ({
   expect(await page.evaluate(() => localStorage.getItem("authToken"))).toBe(savedToken);
   await page.getByRole("button", { name: "Retry session check" }).click();
 
-  await expect(page.getByRole("heading", { name: "Job Applications" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Job Application Tracker" })).toBeVisible();
   expect(attempts).toBe(2);
 });
 
@@ -43,4 +43,18 @@ test("clears a saved session only when the auth endpoint returns 401", async ({ 
 
   await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("authToken"))).toBeNull();
+});
+
+test("shows shared navigation on login and account creation pages", async ({ page }) => {
+  await page.route("**/api/auth/me/", (route) =>
+    route.fulfill({ status: 401, json: { detail: "Not authenticated." } }),
+  );
+
+  await page.goto("/login");
+  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Create account" })).toBeVisible();
+
+  await page.goto("/create-account");
+  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Login" })).toBeVisible();
 });

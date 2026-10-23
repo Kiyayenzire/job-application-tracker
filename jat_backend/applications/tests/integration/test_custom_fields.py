@@ -26,7 +26,6 @@ class CustomFieldApiTests(TestCase):
             {
                 "name": "Tech Stack",
                 "field_type": "tags",
-                "is_filterable": True,
             },
             format="json",
         )
@@ -37,6 +36,24 @@ class CustomFieldApiTests(TestCase):
         listed = self.client.get(reverse("custom-fields-list"))
         self.assertEqual(listed.data["count"], 1)
         self.assertEqual(listed.data["results"][0]["name"], "Tech Stack")
+
+    def test_custom_field_definitions_are_scoped_per_page(self):
+        application_field = self.client.post(
+            reverse("custom-fields-list"),
+            {"name": "Practice Area", "field_type": "text", "scope": "application"},
+            format="json",
+        )
+        company_field = self.client.post(
+            reverse("custom-fields-list"),
+            {"name": "Practice Area", "field_type": "text", "scope": "company"},
+            format="json",
+        )
+
+        self.assertEqual(application_field.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(company_field.status_code, status.HTTP_201_CREATED)
+        self.assertNotEqual(application_field.data["id"], company_field.data["id"])
+        self.assertEqual(application_field.data["scope"], "application")
+        self.assertEqual(company_field.data["scope"], "company")
 
     def test_application_saves_typed_custom_data(self):
         create_custom_field(self.user)
@@ -77,43 +94,66 @@ class CustomFieldApiTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("custom_data", response.data)
 
-    def test_filters_by_strategy_and_custom_tags_without_crossing_users(self):
+    def test_application_cannot_use_custom_fields_configured_for_companies(self):
+        create_custom_field(
+            self.user,
+            name="Practice Area",
+            key="practice_area",
+            scope="company",
+            field_type="text",
+        )
+        payload = {
+            **application_values(),
+            "applied_on": application_values()["applied_on"].isoformat(),
+            "custom_data": {"practice_area": "Employment law"},
+        }
+
+        response = self.client.post(
+            reverse("applications-list"),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("custom_data", response.data)
+
+    def test_application_list_ignores_filter_query_parameters(self):
         create_custom_field(self.user)
-        matching = create_application(
+        first = create_application(
             self.user,
             company_name="CloudScale",
             vacancy_status="none",
             outside_eu_response="maybe",
             custom_data={"tech_stack": ["Python", "AWS"]},
         )
-        create_application(
+        second = create_application(
             self.user,
             company_name="Other Stack",
-            vacancy_status="none",
-            outside_eu_response="maybe",
             custom_data={"tech_stack": ["Java"]},
         )
-        other_user = create_user(username="private-user")
-        create_custom_field(other_user)
         create_application(
-            other_user,
+            create_user(username="private-user"),
             company_name="Private Match",
             vacancy_status="none",
             outside_eu_response="maybe",
-            custom_data={"tech_stack": ["Python", "AWS"]},
+            custom_data={"tech_stack": ["Java"]},
         )
 
         response = self.client.get(
             reverse("applications-list"),
             {
+                "country": "ug",
                 "outside_eu_response": "maybe",
                 "custom_tech_stack": "Python",
             },
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["count"], 1)
-        self.assertEqual(response.data["results"][0]["id"], matching.id)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(
+            {item["id"] for item in response.data["results"]},
+            {first.id, second.id},
+        )
 
     def test_rejects_duplicate_custom_field_names_for_one_user(self):
         create_custom_field(self.user)
@@ -137,25 +177,54 @@ class CustomFieldApiTests(TestCase):
         self.assertIn("options", response.data)
 
     def test_profile_saves_the_users_profession_template(self):
+        profile = self.client.get(reverse("tracking-profile"))
+
+        self.assertEqual(profile.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            profile.data,
+            {
+                "username": self.user.username,
+                "first_name": "",
+                "last_name": "",
+                "email": "",
+                "location": "",
+                "profession_template": "",
+            },
+        )
+
         response = self.client.patch(
             reverse("tracking-profile"),
-            {"profession_template": "Software / DevOps"},
+            {
+                "first_name": "Alex",
+                "last_name": "Morgan",
+                "email": "alex@example.com",
+                "location": "Kampala, Uganda",
+                "profession_template": "Software / DevOps",
+            },
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], self.user.username)
+        self.assertEqual(response.data["first_name"], "Alex")
+        self.assertEqual(response.data["last_name"], "Morgan")
+        self.assertEqual(response.data["email"], "alex@example.com")
+        self.assertEqual(response.data["location"], "Kampala, Uganda")
         self.assertEqual(response.data["profession_template"], "Software / DevOps")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Alex")
+        self.assertEqual(self.user.last_name, "Morgan")
+        self.assertEqual(self.user.email, "alex@example.com")
 
-    def test_rejects_custom_filters_for_fields_not_marked_filterable(self):
-        create_custom_field(self.user, is_filterable=False)
-
-        response = self.client.get(
-            reverse("applications-list"),
-            {"custom_tech_stack": "Python"},
+    def test_profile_rejects_invalid_email(self):
+        response = self.client.patch(
+            reverse("tracking-profile"),
+            {"email": "not-an-email"},
+            format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("custom_filters", response.data)
+        self.assertIn("email", response.data)
 
     def test_rejects_salary_range_when_minimum_exceeds_maximum(self):
         payload = {

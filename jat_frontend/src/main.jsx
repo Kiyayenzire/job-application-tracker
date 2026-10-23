@@ -1,98 +1,81 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { LogOut, Plus, RefreshCw, Settings2 } from "lucide-react";
+import {
+  BrowserRouter,
+  Link,
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useNavigate,
+} from "react-router-dom";
+import { LogOut, Plus, RefreshCw } from "lucide-react";
 
 import {
+  createCustomField,
   createApplication,
   createCompany,
-  createCustomField,
-  deleteApplication,
   deleteCustomField,
+  deleteApplication,
   fetchCurrentUser,
-  fetchTrackingProfile,
   listApplications,
   listCompanies,
   listCustomFields,
   listCountries,
   updateApplication,
   updateCompany,
-  updateTrackingProfile,
 } from "./api";
 import { ApplicationForm } from "./components/ApplicationForm";
 import { ApplicationTable } from "./components/ApplicationTable";
 import { CompanyForm } from "./components/CompanyForm";
 import { CompanyTable } from "./components/CompanyTable";
 import { CreateAccountPage } from "./components/CreateAccountPage";
+import { CVPage } from "./components/CVPage";
 import { CustomFieldManager } from "./components/CustomFieldManager";
-import { FilterSidebar } from "./components/FilterSidebar";
+import { HelpSupportPage } from "./components/HelpSupportPage";
 import { LoginPage } from "./components/LoginPage";
+import { ProfilePage } from "./components/ProfilePage";
+import { ThemeToggle } from "./components/ThemeToggle";
 import "./styles.css";
-import { filterCompanies } from "./utils/filterCompanies";
-import { filterApplications } from "./utils/filterApplications";
 
 function App() {
+  const navigate = useNavigate();
   const [applications, setApplications] = React.useState([]);
   const [companies, setCompanies] = React.useState([]);
   const [countryOptions, setCountryOptions] = React.useState([]);
   const [customFields, setCustomFields] = React.useState([]);
-  const [profile, setProfile] = React.useState({ profession_template: "" });
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [formOpen, setFormOpen] = React.useState(false);
   const [editingApplication, setEditingApplication] = React.useState(null);
   const [companyFormOpen, setCompanyFormOpen] = React.useState(false);
+  const [customizationScope, setCustomizationScope] = React.useState("");
   const [editingCompany, setEditingCompany] = React.useState(null);
-  const [filters, setFilters] = React.useState({
-    dateFrom: "",
-    dateTo: "",
-    status: "",
-    companyId: "",
-    companyResearch: "",
-    salaryMin: "",
-    salaryMax: "",
-    searchText: "",
-    companyName: "",
-    jobTitle: "",
-    keyword: "",
-    requirement: "",
-    country: "",
-    vacancyStatus: "",
-    applicationType: "",
-    outsideEuResponse: "",
-    hiringPattern: "",
-    outsideEuHiring: "",
-    companyPriority: "",
-    techStackMatchMin: "",
-    speculativeContactStatus: "",
-    companyHiringPattern: "",
-    relocationSupport: "",
-    locationRequirement: "",
-    companyWorkArrangement: "",
-    speculativeCompanyApplication: "",
-  });
-  const [filterDrafts, setFilterDrafts] = React.useState(filters);
   const [user, setUser] = React.useState(null);
   const [authChecked, setAuthChecked] = React.useState(false);
   const [authCheckAttempt, setAuthCheckAttempt] = React.useState(0);
   const [authError, setAuthError] = React.useState("");
-  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [theme, setTheme] = React.useState(() => (
+    localStorage.getItem("oasTheme") === "dark" ? "dark" : "light"
+  ));
+  const applicationCustomFields = customFields.filter(
+    (field) => !field.scope || field.scope === "application",
+  );
+  const companyCustomFields = customFields.filter((field) => field.scope === "company");
 
   const load = React.useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [nextApplications, nextCompanies, nextCustomFields, nextProfile, nextCountryOptions] = await Promise.all([
+      const [nextApplications, nextCompanies, nextCustomFields, nextCountryOptions] = await Promise.all([
         listApplications(),
         listCompanies(),
         listCustomFields(),
-        fetchTrackingProfile(),
         listCountries(),
       ]);
       setApplications(nextApplications);
       setCompanies(nextCompanies);
       setCustomFields(nextCustomFields);
-      setProfile(nextProfile);
       setCountryOptions(nextCountryOptions);
     } catch (err) {
       setError(err.message);
@@ -138,6 +121,14 @@ function App() {
     setAuthError("");
     setAuthChecked(false);
     setAuthCheckAttempt((attempt) => attempt + 1);
+  }
+
+  function toggleTheme() {
+    setTheme((current) => {
+      const nextTheme = current === "dark" ? "light" : "dark";
+      localStorage.setItem("oasTheme", nextTheme);
+      return nextTheme;
+    });
   }
 
   React.useEffect(() => {
@@ -187,6 +178,16 @@ function App() {
     setCompanyFormOpen(false);
   }
 
+  async function handleCreateCustomField(payload) {
+    const created = await createCustomField(payload);
+    setCustomFields((current) => [...current, created]);
+  }
+
+  async function handleDeleteCustomField(field) {
+    await deleteCustomField(field.id);
+    setCustomFields((current) => current.filter((item) => item.id !== field.id));
+  }
+
   function handleEdit(application) {
     setEditingApplication(application);
     setFormOpen(true);
@@ -201,94 +202,24 @@ function App() {
     setApplications((current) => current.filter((item) => item.id !== application.id));
   }
 
-  async function handleCreateCustomField(payload) {
-    const created = await createCustomField(payload);
-    setCustomFields((current) => [...current, created]);
-  }
-
-  async function handleDeleteCustomField(field) {
-    try {
-      await deleteCustomField(field.id);
-      setCustomFields((current) => current.filter((item) => item.id !== field.id));
-      setFilters((current) => {
-        const next = { ...current };
-        delete next[`custom_${field.key}`];
-        return next;
-      });
-      setFilterDrafts((current) => {
-        const next = { ...current };
-        delete next[`custom_${field.key}`];
-        return next;
-      });
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  async function handleSaveProfile(payload) {
-    setProfile(await updateTrackingProfile(payload));
-  }
-
-  const filteredApplications = React.useMemo(
-    () => filterApplications(applications, filters, customFields),
-    [applications, filters, customFields],
-  );
-  const filteredCompanies = React.useMemo(
-    () => filterCompanies(companies, filters),
-    [companies, filters],
-  );
-  const hasActiveFilters = Object.values(filters).some((value) => value !== "" && value != null);
-  const activeFilterCount = Object.values(filters).filter((value) => value !== "" && value != null).length;
-
-  function updateFilter(field, value) {
-    setFilterDrafts((current) => ({ ...current, [field]: value }));
-  }
-
-  function applyFilters() {
-    setFilters(filterDrafts);
-  }
-
-  function clearFilters() {
-    const clearedFilters = {
-      dateFrom: "",
-      dateTo: "",
-      status: "",
-      companyId: "",
-      companyResearch: "",
-      salaryMin: "",
-      salaryMax: "",
-      searchText: "",
-      companyName: "",
-      jobTitle: "",
-      keyword: "",
-      requirement: "",
-      country: "",
-      vacancyStatus: "",
-      applicationType: "",
-      outsideEuResponse: "",
-      hiringPattern: "",
-      outsideEuHiring: "",
-      companyPriority: "",
-      techStackMatchMin: "",
-      speculativeContactStatus: "",
-      companyHiringPattern: "",
-      relocationSupport: "",
-      locationRequirement: "",
-      companyWorkArrangement: "",
-      speculativeCompanyApplication: "",
-      ...Object.fromEntries(customFields.map((field) => [`custom_${field.key}`, ""])),
-    };
-    setFilters(clearedFilters);
-    setFilterDrafts(clearedFilters);
+  function handleAuthenticated(authenticatedUser) {
+    setUser(authenticatedUser);
+    navigate("/applications", { replace: true });
   }
 
   if (!authChecked) {
-    return <main className="shell"><div className="loading">Checking session...</div></main>;
+    return (
+      <main className="shell app-shell" data-theme={theme}>
+        <AppHeader theme={theme} onThemeToggle={toggleTheme} />
+        <div className="loading">Checking session...</div>
+      </main>
+    );
   }
 
   if (authError) {
     return (
-      <main className="shell auth-shell">
+      <main className="shell app-shell" data-theme={theme}>
+        <AppHeader theme={theme} onThemeToggle={toggleTheme} />
         <section className="auth-card">
           <div className="error" role="alert">{authError}</div>
           <button className="primary-button" onClick={retrySessionCheck} type="button">
@@ -301,174 +232,248 @@ function App() {
 
   if (!user) {
     return (
-      <BrowserRouter>
-        <Routes>
-          <Route element={<LoginPage onAuthenticated={setUser} />} path="/login" />
-          <Route element={<CreateAccountPage onAuthenticated={setUser} />} path="/create-account" />
-          <Route element={<Navigate replace to="/login" />} path="*" />
-        </Routes>
-      </BrowserRouter>
+      <main className="shell app-shell" data-theme={theme}>
+        <AppHeader theme={theme} onThemeToggle={toggleTheme} />
+        <section className="auth-shell">
+          <Routes>
+            <Route element={<LoginPage onAuthenticated={handleAuthenticated} />} path="/login" />
+            <Route element={<CreateAccountPage onAuthenticated={handleAuthenticated} />} path="/create-account" />
+            <Route element={<Navigate replace to="/login" />} path="*" />
+          </Routes>
+        </section>
+      </main>
     );
   }
 
   return (
-    <main className="shell">
-      <header className="topbar">
-        <div>
-          <h1>Job Applications</h1>
-          <p>{companies.length} companies · {applications.length} tracked applications</p>
-        </div>
-        <div className="actions">
-          <button className="icon-button" onClick={load} title="Refresh applications" type="button">
-            <RefreshCw size={18} />
-          </button>
-          <button
-            className="ghost-button"
-            onClick={() => setSettingsOpen((open) => !open)}
-            type="button"
-          >
-            <Settings2 size={18} />
-            {settingsOpen ? "Hide custom data settings" : "Custom data & profile settings"}
-          </button>
-          <button
-            className="ghost-button"
-            onClick={() => {
-              localStorage.removeItem("authToken");
-              setUser(null);
-            }}
-            type="button"
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
-        </div>
-      </header>
+    <main className="shell app-shell" data-theme={theme}>
+      <AppHeader
+        onLogout={() => {
+          localStorage.removeItem("authToken");
+          setUser(null);
+          navigate("/login", { replace: true });
+        }}
+        onRefresh={load}
+        onThemeToggle={toggleTheme}
+        theme={theme}
+        user={user}
+      />
 
       {error && <div className="error">{error}</div>}
 
-      {settingsOpen && (
-        <CustomFieldManager
-          fields={customFields}
-          onCreateField={handleCreateCustomField}
-          onDeleteField={handleDeleteCustomField}
-          onSaveProfile={handleSaveProfile}
-          profile={profile}
+      <Routes>
+        <Route path="/" element={<Navigate replace to="/applications" />} />
+        <Route
+          path="/applications"
+          element={(
+            <section aria-label="Application list" className="application-results">
+              <div className="application-list-toolbar">
+                <div>
+                  <h2>Job applications</h2>
+                  <p className="muted">Track each role, application status, and next step in one place.</p>
+                </div>
+                <div className="actions">
+                  <button
+                    className="ghost-button"
+                    onClick={() => setCustomizationScope((current) => current === "application" ? "" : "application")}
+                    type="button"
+                  >
+                    Customize application fields
+                  </button>
+                  <button
+                    className="primary-button"
+                    disabled={loading}
+                    onClick={() => {
+                      setEditingApplication(null);
+                      setFormOpen(true);
+                    }}
+                    type="button"
+                  >
+                    <Plus size={18} />
+                    Add application
+                  </button>
+                </div>
+              </div>
+              {customizationScope === "application" && (
+                <CustomFieldManager
+                  fields={applicationCustomFields}
+                  onCreateField={handleCreateCustomField}
+                  onDeleteField={handleDeleteCustomField}
+                  scope="application"
+                />
+              )}
+              {formOpen && (
+                <ApplicationForm
+                  companies={companies}
+                  countryOptions={countryOptions}
+                  customFields={applicationCustomFields}
+                  initialValues={editingApplication}
+                  onCancel={() => {
+                    setEditingApplication(null);
+                    setFormOpen(false);
+                  }}
+                  onSave={handleSave}
+                />
+              )}
+              {loading ? (
+                <div className="loading">Loading applications...</div>
+              ) : (
+                <ApplicationTable
+                  applications={applications}
+                  countryOptions={countryOptions}
+                  customFields={applicationCustomFields}
+                  onDelete={handleDelete}
+                  onEdit={handleEdit}
+                />
+              )}
+            </section>
+          )}
         />
-      )}
-
-      <div className="application-layout">
-        <section aria-label="Application list" className="application-results">
-          <div className="application-list-toolbar">
-            <div>
-              <h2>Company research</h2>
-              <p className="muted">Record company eligibility and hiring research once, then link vacancies to it.</p>
-            </div>
-            <button
-              className="primary-button"
-              disabled={loading || countryOptions.length === 0}
-              onClick={() => {
-                setEditingCompany(null);
-                setCompanyFormOpen(true);
-              }}
-              type="button"
-            >
-              <Plus size={18} />
-              Add company
-            </button>
-          </div>
-          {companyFormOpen && (
-            <CompanyForm
-              company={editingCompany}
-              countryOptions={countryOptions}
-              onCancel={() => {
-                setEditingCompany(null);
-                setCompanyFormOpen(false);
-              }}
-              onSave={handleSaveCompany}
-            />
+        <Route
+          path="/companies"
+          element={(
+            <section aria-label="Company list" className="application-results">
+              <div className="application-list-toolbar">
+                <div>
+                  <h2>Company intelligence</h2>
+                  <p className="muted">Keep reusable eligibility, relocation, and hiring research separate from applications.</p>
+                </div>
+                <div className="actions">
+                  <button
+                    className="ghost-button"
+                    onClick={() => setCustomizationScope((current) => current === "company" ? "" : "company")}
+                    type="button"
+                  >
+                    Customize company fields
+                  </button>
+                  <button
+                    className="primary-button"
+                    disabled={loading || countryOptions.length === 0}
+                    onClick={() => {
+                      setEditingCompany(null);
+                      setCompanyFormOpen(true);
+                    }}
+                    type="button"
+                  >
+                    <Plus size={18} />
+                    Add company research
+                  </button>
+                </div>
+              </div>
+              {customizationScope === "company" && (
+                <CustomFieldManager
+                  fields={companyCustomFields}
+                  onCreateField={handleCreateCustomField}
+                  onDeleteField={handleDeleteCustomField}
+                  scope="company"
+                />
+              )}
+              {companyFormOpen && (
+                <CompanyForm
+                  company={editingCompany}
+                  countryOptions={countryOptions}
+                  customFields={companyCustomFields}
+                  onCancel={() => {
+                    setEditingCompany(null);
+                    setCompanyFormOpen(false);
+                  }}
+                  onSave={handleSaveCompany}
+                />
+              )}
+              {loading ? (
+                <div className="loading">Loading company research...</div>
+              ) : (
+                <CompanyTable
+                  companies={companies}
+                  countryOptions={countryOptions}
+                  customFields={companyCustomFields}
+                  emptyMessage="No company research yet. Add it when you want to track a company's hiring strategy."
+                  onEdit={(company) => {
+                    setEditingCompany(company);
+                    setCompanyFormOpen(true);
+                  }}
+                />
+              )}
+            </section>
           )}
-          {loading ? (
-            <div className="loading">Loading companies...</div>
-          ) : (
-            <CompanyTable
-              companies={filteredCompanies}
-              countryOptions={countryOptions}
-              emptyMessage={
-                companies.length > 0 && filteredCompanies.length === 0
-                  ? "No companies match these filters."
-                  : undefined
-              }
-              onEdit={(company) => {
-                setEditingCompany(company);
-                setCompanyFormOpen(true);
-              }}
-            />
-          )}
-          <div className="application-list-toolbar job-list-toolbar">
-            <div>
-              <h2>Vacancies &amp; applications</h2>
-              <p className="muted">Track individual jobs and their application status.</p>
-            </div>
-            <button
-              className="primary-button"
-              disabled={loading || companies.length === 0}
-              onClick={() => {
-                setEditingApplication(null);
-                setFormOpen(true);
-              }}
-              type="button"
-            >
-              <Plus size={18} />
-              Add vacancy / application
-            </button>
-          </div>
-          {companies.length === 0 && (
-            <p className="muted">Add a company before recording its vacancies or applications.</p>
-          )}
-          {formOpen && (
-            <ApplicationForm
-              companies={companies}
-              countryOptions={countryOptions}
-              customFields={customFields}
-              initialValues={editingApplication}
-              onCancel={() => {
-                setEditingApplication(null);
-                setFormOpen(false);
-              }}
-              onSave={handleSave}
-            />
-          )}
-          {loading ? (
-            <div className="loading">Loading applications...</div>
-          ) : (
-            <ApplicationTable
-              applications={filteredApplications}
-              countryOptions={countryOptions}
-              customFields={customFields}
-              emptyMessage={
-                applications.length > 0 && hasActiveFilters
-                  ? "No applications match these filters."
-                  : "No applications yet."
-              }
-              onDelete={handleDelete}
-              onEdit={handleEdit}
-            />
-          )}
-        </section>
-        <FilterSidebar
-          activeFilterCount={activeFilterCount}
-          countryOptions={countryOptions}
-          customFields={customFields}
-          filters={filterDrafts}
-          companies={companies}
-          onApply={applyFilters}
-          onChange={updateFilter}
-          onClear={clearFilters}
-          onOpenCustomFields={() => setSettingsOpen(true)}
         />
-      </div>
+        <Route
+          path="/profile"
+          element={<ProfilePage username={user.username} />}
+        />
+        <Route
+          path="/cv"
+          element={<CVPage applications={applications} />}
+        />
+        <Route path="/help" element={<HelpSupportPage />} />
+        <Route path="*" element={<Navigate replace to="/applications" />} />
+      </Routes>
     </main>
   );
 }
 
-createRoot(document.getElementById("root")).render(<App />);
+function AppHeader({
+  onLogout,
+  onRefresh,
+  onThemeToggle,
+  theme,
+  user,
+}) {
+  return (
+    <header className="topbar">
+      <Link className="brand-link" to={user ? "/applications" : "/login"}>
+        <h1>Job Application Tracker</h1>
+      </Link>
+      <nav aria-label="Main navigation" className="main-navigation">
+        {user ? (
+          <>
+            <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/applications">
+              Applications
+            </NavLink>
+            <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/companies">
+              Companies
+            </NavLink>
+            <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/profile">
+              Profile
+            </NavLink>
+            <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/cv">
+              CV
+            </NavLink>
+            <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/help">
+              Help &amp; Support
+            </NavLink>
+          </>
+        ) : (
+          <>
+            <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/login">
+              Login
+            </NavLink>
+            <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/create-account">
+              Create account
+            </NavLink>
+          </>
+        )}
+      </nav>
+      <div className="actions">
+        <ThemeToggle onToggle={onThemeToggle} theme={theme} />
+        {user && (
+          <>
+            <button className="icon-button" onClick={onRefresh} title="Refresh applications" type="button">
+              <RefreshCw size={18} />
+            </button>
+            <button className="ghost-button" onClick={onLogout} type="button">
+              <LogOut size={18} />
+              Logout
+            </button>
+          </>
+        )}
+      </div>
+    </header>
+  );
+}
+
+createRoot(document.getElementById("root")).render(
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>,
+);

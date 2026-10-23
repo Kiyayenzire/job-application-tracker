@@ -1,8 +1,12 @@
 import React from "react";
 
-import { registerUser } from "../api";
+import { loginWithGoogle, registerUser } from "../api";
+import { GoogleSignInButton } from "./GoogleSignInButton";
 
-export function CreateAccountPage({ onAuthenticated }) {
+export function CreateAccountPage({
+  onAuthenticated,
+  googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID,
+}) {
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
@@ -16,6 +20,20 @@ export function CreateAccountPage({ onAuthenticated }) {
     { label: "One number", ok: /\d/.test(password) },
     { label: "One special character", ok: /[^A-Za-z0-9]/.test(password) },
   ];
+
+  async function continueWithGoogle(credential) {
+    setError("");
+    setLoading(true);
+    try {
+      const response = await loginWithGoogle(credential);
+      localStorage.setItem("authToken", response.token);
+      onAuthenticated(response.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function validatePassword(value) {
     return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{7,}$/.test(value);
@@ -49,12 +67,11 @@ export function CreateAccountPage({ onAuthenticated }) {
   }
 
   return (
-    <main className="shell auth-shell">
-      <section className="auth-card">
+    <section className="auth-card">
         <div>
           <p className="eyebrow">New here</p>
           <h1>Create account</h1>
-          <p className="muted">Create your username and password, then confirm the password below. Your password must meet all of the rules listed below.</p>
+          <p className="muted">Create your account with a username and password or continue with Google.</p>
         </div>
 
         <form className="editor auth-form" onSubmit={submit}>
@@ -79,7 +96,12 @@ export function CreateAccountPage({ onAuthenticated }) {
           <button className="primary-button" disabled={loading} type="submit">{loading ? "Creating account..." : "Create account"}</button>
           <a className="text-link" href="/login">Back to login</a>
         </form>
-      </section>
-    </main>
+
+        <div className="auth-divider"><span>or continue with Google</span></div>
+        <GoogleSignInButton
+          clientId={googleClientId}
+          onCredential={continueWithGoogle}
+        />
+    </section>
   );
 }

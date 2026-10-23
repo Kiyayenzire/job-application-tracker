@@ -14,5 +14,3 @@ test-results/
 db_data/
 *.sqlite3
 logs/
-*logs/
-*logs

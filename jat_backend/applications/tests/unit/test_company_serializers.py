@@ -29,6 +29,8 @@ class CompanySerializerTests(TestCase):
             "next_hiring_window": "Nov 2026-Feb 2027",
             "company_notes": "Monitor closely.",
             "language_requirement": "English",
+            "german_level": "B2",
+            "english_level": "C1",
             "work_arrangement": "hybrid",
             "relocation_required": False,
         }
@@ -39,6 +41,17 @@ class CompanySerializerTests(TestCase):
         self.assertEqual(serializer.validated_data["tech_stack_match"], 85)
         self.assertEqual(serializer.validated_data["primary_stack_match"], ["Python", "Django", "AWS"])
         self.assertEqual(serializer.validated_data["outside_eu_hiring"], Company.OutsideEUHiring.UNVERIFIED)
+        self.assertEqual(serializer.validated_data["german_level"], "B2")
+        self.assertEqual(serializer.validated_data["english_level"], "C1")
+
+    def test_rejects_invalid_company_language_levels(self):
+        serializer = CompanySerializer(
+            data={"name": "Entrix", "german_level": "C3"},
+            context=self.context,
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("german_level", serializer.errors)
 
     def test_rejects_stack_scores_outside_zero_to_one_hundred(self):
         serializer = CompanySerializer(

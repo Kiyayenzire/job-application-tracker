@@ -1,0 +1,94 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{% if form.errors %}{% translate "Error:" %} {% endif %}{{ block.super }}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static "admin/css/login.css" %}">
+{{ form.media }}
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+{% block usertools %}{% endblock %}
+{% block nav-global %}{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+{% block content_title %}{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div class="oas-login-layout">
+  <section aria-labelledby="oas-login-heading" class="oas-login-story">
+    <div class="oas-login-story-content">
+      <p class="oas-login-kicker">{% translate "Job Application Tracker" %} <span>/</span> {% translate "Private workspace" %}</p>
+      <h1 id="oas-login-heading">{% translate "Your next move," %} <span>{% translate "in focus." %}</span></h1>
+      <p class="oas-login-intro">{% translate "Research organizations. Spot hiring patterns. Move forward with confidence." %}</p>
+      <div class="oas-login-assurance">
+        <span aria-hidden="true" class="oas-login-indicator"></span>
+        {% translate "Your workspace is protected" %}
+      </div>
+    </div>
+    <div aria-hidden="true" class="oas-login-orbit oas-login-orbit-one"></div>
+    <div aria-hidden="true" class="oas-login-orbit oas-login-orbit-two"></div>
+    <p class="oas-login-story-footer">{% translate "Thoughtful research. Intentional progress." %}</p>
+  </section>
+
+  <section aria-labelledby="oas-form-heading" class="oas-login-panel">
+    <div class="oas-login-panel-content">
+      <p class="oas-login-panel-kicker">{% translate "Secure access" %}</p>
+      <h2 id="oas-form-heading">{% translate "Welcome back" %}</h2>
+      <p class="oas-login-panel-description">{% translate "Sign in to continue to your workspace." %}</p>
+
+      {% if form.errors and not form.non_field_errors %}
+      <p class="errornote">
+        {% blocktranslate count counter=form.errors.items|length %}Please correct the error below.{% plural %}Please correct the errors below.{% endblocktranslate %}
+      </p>
+      {% endif %}
+
+      {% if form.non_field_errors %}
+      {% for error in form.non_field_errors %}
+      <p class="errornote">{{ error }}</p>
+      {% endfor %}
+      {% endif %}
+
+      {% if user.is_authenticated %}
+      <p class="errornote">
+        {% blocktranslate trimmed %}
+          You are authenticated as {{ username }}, but are not authorized to
+          access this page. Would you like to login to a different account?
+        {% endblocktranslate %}
+      </p>
+      {% endif %}
+
+      <div id="content-main">
+        <form action="{{ app_path }}" method="post" id="login-form">
+          {% csrf_token %}
+          <div class="form-row">
+            {{ form.username.errors }}
+            {{ form.username.label_tag }}
+            {{ form.username }}
+          </div>
+          <div class="form-row">
+            {{ form.password.errors }}
+            {{ form.password.label_tag }}
+            {{ form.password }}
+            <input type="hidden" name="next" value="{{ next }}">
+          </div>
+          {% url 'admin_password_reset' as password_reset_url %}
+          {% if password_reset_url %}
+          <div class="password-reset-link">
+            <a href="{{ password_reset_url }}">{% translate "Forgotten your login credentials?" %}</a>
+          </div>
+          {% endif %}
+          <div class="submit-row">
+            <input type="submit" value="{% translate 'Enter workspace' %}">
+            <span aria-hidden="true" class="oas-login-submit-arrow">→</span>
+          </div>
+        </form>
+      </div>
+
+      <p class="oas-login-privacy">{% translate "Authorized personnel only. Activity may be recorded for operational security." %}</p>
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -5,27 +5,61 @@ import { describe, expect, it, vi } from "vitest";
 import { ApplicationForm } from "./ApplicationForm";
 
 const companies = [{ id: 1, name: "Acme GmbH" }];
+const countryOptions = [{ code: "de", name: "Germany" }];
 
 describe("ApplicationForm", () => {
-  it("defaults to a current vacancy and disables save until enough keywords are entered", async () => {
-    render(<ApplicationForm companies={companies} onCancel={vi.fn()} onSave={vi.fn()} />);
+  it("creates an application with a company name without requiring company research first", async () => {
+    const onSave = vi.fn();
+    render(<ApplicationForm companies={[]} countryOptions={countryOptions} onCancel={vi.fn()} onSave={onSave} />);
 
-    expect(screen.getByLabelText("Company")).toBeRequired();
-    expect(screen.getByLabelText("Country")).toHaveValue("Germany");
+    expect(screen.getByLabelText("Company name")).toBeRequired();
+    expect(screen.queryByLabelText("Company")).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Company name"), "New GmbH");
+    await userEvent.type(screen.getByLabelText("Country"), "g");
+    await userEvent.click(screen.getByRole("option", { name: "Germany" }));
+    await userEvent.type(screen.getByLabelText("Job title / position applied for"), "Backend Developer");
+    await userEvent.type(screen.getByLabelText("URL"), "https://example.com/jobs/1");
+    await userEvent.type(screen.getByLabelText("Keywords"), "python, django, react, mysql, docker");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          company: null,
+          company_name: "New GmbH",
+          job_title: "Backend Developer",
+        }),
+      );
+    }, 15000);
+  }, 15000);
+
+  it("defaults to a current vacancy and disables save until enough keywords are entered", async () => {
+    render(
+      <ApplicationForm
+        companies={companies}
+        countryOptions={countryOptions}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Company name")).toBeRequired();
+    expect(screen.getByLabelText("Country")).toHaveValue("");
     expect(screen.getByLabelText("Vacancy status")).toHaveValue("current");
     expect(screen.getByText("Next step: Apply now")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
 
-    await userEvent.selectOptions(screen.getByLabelText("Company"), "1");
+    await userEvent.type(screen.getByLabelText("Company name"), "Acme GmbH");
     await userEvent.type(screen.getByLabelText("Keywords"), "python, django, react, mysql, docker");
 
     expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
   });
 
   it("keeps the original job details, requirements, and strategy fields in the form", () => {
-    render(<ApplicationForm companies={companies} onCancel={vi.fn()} onSave={vi.fn()} />);
+    render(<ApplicationForm companies={companies} countryOptions={countryOptions} onCancel={vi.fn()} onSave={vi.fn()} />);
 
-    expect(screen.getByLabelText("Company")).toBeInTheDocument();
+    expect(screen.getByLabelText("Company name")).toBeInTheDocument();
     expect(screen.getByLabelText("Job title / position applied for")).toBeInTheDocument();
     expect(screen.getByLabelText("Keywords")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Requirements - Other" })).toBeInTheDocument();
@@ -33,11 +67,31 @@ describe("ApplicationForm", () => {
     expect(screen.getByLabelText("Status")).toBeInTheDocument();
     expect(screen.getByLabelText("Salary")).toBeInTheDocument();
     expect(screen.getByLabelText("Notes / Remarks")).toBeInTheDocument();
-    expect(screen.getByText(/No custom data fields configured yet/)).toBeInTheDocument();
+    expect(screen.getByText("No custom application fields are configured for this account.")).toBeInTheDocument();
+  });
+
+  it("offers CEFR language levels from A1 through C2", async () => {
+    render(<ApplicationForm companies={companies} countryOptions={countryOptions} onCancel={vi.fn()} onSave={vi.fn()} />);
+    const englishFields = within(screen.getByRole("group", { name: "English" }));
+
+    await userEvent.selectOptions(englishFields.getAllByRole("combobox")[0], "Yes");
+
+    expect(englishFields.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "Undefined",
+      "Yes",
+      "No",
+      "Select level",
+      "A1",
+      "A2",
+      "B1",
+      "B2",
+      "C1",
+      "C2",
+    ]);
   });
 
   it("includes the expanded backend and cloud technology requirements", () => {
-    render(<ApplicationForm companies={companies} onCancel={vi.fn()} onSave={vi.fn()} />);
+    render(<ApplicationForm companies={companies} countryOptions={countryOptions} onCancel={vi.fn()} onSave={vi.fn()} />);
 
     expect(screen.getByLabelText("Django REST Framework")).toBeInTheDocument();
     expect(screen.getByLabelText("Docker")).toBeInTheDocument();
@@ -46,17 +100,17 @@ describe("ApplicationForm", () => {
   });
 
   it("filters country suggestions by name prefix", async () => {
-    const countryOptions = [
+    const countrySuggestions = [
       { code: "ug", name: "Uganda" },
       { code: "ua", name: "Ukraine" },
       { code: "ae", name: "United Arab Emirates" },
       { code: "us", name: "United States" },
       { code: "at", name: "Austria" },
     ];
-    render(<ApplicationForm companies={companies} countryOptions={countryOptions} onCancel={vi.fn()} onSave={vi.fn()} />);
+    render(<ApplicationForm companies={companies} countryOptions={countrySuggestions} onCancel={vi.fn()} onSave={vi.fn()} />);
     const countryInput = screen.getByLabelText("Country");
 
-    await userEvent.clear(countryInput);
+    expect(countryInput).toHaveValue("");
     await userEvent.type(countryInput, "u");
 
     const suggestions = within(screen.getByRole("listbox"));
@@ -71,7 +125,7 @@ describe("ApplicationForm", () => {
   });
 
   it("captures the speculative decision and hiring pattern", async () => {
-    render(<ApplicationForm companies={companies} onCancel={vi.fn()} onSave={vi.fn()} />);
+    render(<ApplicationForm companies={companies} countryOptions={countryOptions} onCancel={vi.fn()} onSave={vi.fn()} />);
 
     await userEvent.selectOptions(screen.getByLabelText("Vacancy status"), "none");
 
@@ -103,6 +157,7 @@ describe("ApplicationForm", () => {
     render(
       <ApplicationForm
         companies={companies}
+        countryOptions={countryOptions}
         customFields={[
           { key: "tech_stack", name: "Tech Stack", field_type: "tags" },
           { key: "cloud_provider", name: "Cloud Provider", field_type: "select", options: ["AWS", "Azure"] },
@@ -114,7 +169,9 @@ describe("ApplicationForm", () => {
     );
 
     expect(screen.getByRole("group", { name: "Custom data / profession-specific details" })).toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText("Company"), "1");
+    await userEvent.type(screen.getByLabelText("Company name"), "Acme GmbH");
+    await userEvent.type(screen.getByLabelText("Country"), "g");
+    await userEvent.click(screen.getByRole("option", { name: "Germany" }));
     await userEvent.type(screen.getByLabelText("Tech Stack"), "Kubernetes, AWS");
     await userEvent.selectOptions(screen.getByLabelText("Cloud Provider"), "AWS");
     await userEvent.click(screen.getByLabelText("Security Clearance"));
@@ -134,11 +191,11 @@ describe("ApplicationForm", () => {
           },
         }),
       );
-    });
-  });
+    }, 15000);
+  }, 15000);
 
   it("adds a custom requirement option to the selected set", async () => {
-    render(<ApplicationForm companies={companies} onCancel={vi.fn()} onSave={vi.fn()} />);
+    render(<ApplicationForm companies={companies} countryOptions={countryOptions} onCancel={vi.fn()} onSave={vi.fn()} />);
 
     await userEvent.type(screen.getByLabelText("Add custom requirement"), "redis");
     await userEvent.click(screen.getByRole("button", { name: /add option/i }));
@@ -146,11 +203,25 @@ describe("ApplicationForm", () => {
     expect(screen.getByText("8 selected. At least 7 required.")).toBeInTheDocument();
   });
 
+  it("offers CEFR language levels from A1 through C2", async () => {
+    render(<ApplicationForm companies={companies} countryOptions={countryOptions} onCancel={vi.fn()} onSave={vi.fn()} />);
+
+    const englishFieldset = screen.getByRole("group", { name: "English" });
+    const englishRequirement = within(englishFieldset).getAllByRole("combobox")[0];
+
+    await userEvent.selectOptions(englishRequirement, "Yes");
+
+    const levels = within(englishFieldset).getAllByRole("combobox")[1];
+    expect([...levels.options].map((option) => option.value)).toEqual(["", "A1", "A2", "B1", "B2", "C1", "C2"]);
+  });
+
   it("submits normalized keywords and omits levels for language requirements set to no", async () => {
     const onSave = vi.fn();
-    render(<ApplicationForm companies={companies} onCancel={vi.fn()} onSave={onSave} />);
+    render(<ApplicationForm companies={companies} countryOptions={countryOptions} onCancel={vi.fn()} onSave={onSave} />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Company"), "1");
+    await userEvent.type(screen.getByLabelText("Company name"), "Acme GmbH");
+    await userEvent.type(screen.getByLabelText("Country"), "g");
+    await userEvent.click(screen.getByRole("option", { name: "Germany" }));
     await userEvent.type(screen.getByLabelText("Job title / position applied for"), "Developer");
     await userEvent.type(screen.getByLabelText("URL"), "https://example.com/jobs/1");
     await userEvent.type(

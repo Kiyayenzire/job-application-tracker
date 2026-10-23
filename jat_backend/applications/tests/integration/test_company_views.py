@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 from applications.tests.factories import (
     application_values,
     create_company,
+    create_custom_field,
     create_user,
 )
 
@@ -27,6 +28,8 @@ class CompanyApiTests(TestCase):
             "primary_stack_match": ["Python", "Django", "AWS"],
             "hiring_pattern": "Q4-Q1",
             "priority": "A",
+            "german_level": "B1",
+            "english_level": "C2",
         }
 
         created = self.client.post(reverse("companies-list"), payload, format="json")
@@ -35,8 +38,49 @@ class CompanyApiTests(TestCase):
         self.assertEqual(created.status_code, status.HTTP_201_CREATED)
         self.assertEqual(created.data["owner"], self.user.id)
         self.assertEqual(created.data["tech_stack_match"], 85)
+        self.assertEqual(created.data["german_level"], "B1")
+        self.assertEqual(created.data["english_level"], "C2")
         self.assertEqual(listed.data["count"], 1)
         self.assertEqual(listed.data["results"][0]["name"], "Entrix")
+
+    def test_company_saves_values_for_its_own_custom_fields(self):
+        create_custom_field(
+            self.user,
+            name="Practice Area",
+            key="practice_area",
+            scope="company",
+            field_type="text",
+        )
+
+        created = self.client.post(
+            reverse("companies-list"),
+            {
+                "name": "Legal Partners",
+                "custom_data": {"practice_area": "Employment law"},
+            },
+            format="json",
+        )
+
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            created.data["custom_data"],
+            {"practice_area": "Employment law"},
+        )
+
+    def test_company_rejects_application_scoped_custom_fields(self):
+        create_custom_field(self.user)
+
+        response = self.client.post(
+            reverse("companies-list"),
+            {
+                "name": "Legal Partners",
+                "custom_data": {"tech_stack": ["Python"]},
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("custom_data", response.data)
 
     def test_links_application_to_owned_company_and_reuses_company_name(self):
         company = create_company(

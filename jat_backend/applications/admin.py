@@ -3,6 +3,11 @@ from django.contrib import admin
 from .models import Application, Company, CustomFieldDefinition, TrackingProfile
 
 
+admin.site.site_header = "Job Application Tracker"
+admin.site.site_title = "Job Application Tracker Admin"
+admin.site.index_title = "Tracker administration"
+
+
 @admin.register(Application)
 class ApplicationAdmin(admin.ModelAdmin):
     list_display = (
@@ -47,8 +52,8 @@ class CompanyAdmin(admin.ModelAdmin):
 
 @admin.register(CustomFieldDefinition)
 class CustomFieldDefinitionAdmin(admin.ModelAdmin):
-    list_display = ("name", "key", "field_type", "is_filterable", "user")
-    list_filter = ("field_type", "is_filterable")
+    list_display = ("name", "key", "field_type", "user")
+    list_filter = ("field_type",)
     search_fields = ("name", "key", "user__username")
 
 

@@ -118,6 +118,7 @@ COUNTRY_OPTIONS = [
     ("ki", "Kiribati"),
     ("kp", "Korea, Democratic People's Republic of"),
     ("kr", "Korea, Republic of"),
+    ("xk", "Kosovo"),
     ("kw", "Kuwait"),
     ("kg", "Kyrgyzstan"),
     ("la", "Lao People's Democratic Republic"),

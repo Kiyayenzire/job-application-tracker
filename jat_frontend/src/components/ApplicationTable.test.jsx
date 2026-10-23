@@ -34,15 +34,10 @@ describe("ApplicationTable", () => {
     expect(screen.getByRole("cell", { name: /python, Django, react/ })).toBeInTheDocument();
   });
 
-  it("explains when active filters hide all applications", () => {
-    render(
-      <ApplicationTable
-        applications={[]}
-        emptyMessage="No applications match these filters."
-      />,
-    );
+  it("shows the empty application state when there are no records", () => {
+    render(<ApplicationTable applications={[]} />);
 
-    expect(screen.getByText("No applications match these filters.")).toBeInTheDocument();
+    expect(screen.getByText("No applications yet.")).toBeInTheDocument();
   });
 
   it("renders custom fields as application columns", () => {

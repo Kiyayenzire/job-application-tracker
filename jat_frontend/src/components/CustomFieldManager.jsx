@@ -13,31 +13,13 @@ export function CustomFieldManager({
   fields,
   onCreateField,
   onDeleteField,
-  onSaveProfile,
-  profile,
+  scope,
 }) {
-  const [professionTemplate, setProfessionTemplate] = React.useState(
-    profile.profession_template || "",
-  );
   const [name, setName] = React.useState("");
   const [fieldType, setFieldType] = React.useState("tags");
   const [options, setOptions] = React.useState("");
-  const [isFilterable, setIsFilterable] = React.useState(true);
   const [error, setError] = React.useState("");
-
-  React.useEffect(() => {
-    setProfessionTemplate(profile.profession_template || "");
-  }, [profile.profession_template]);
-
-  async function saveProfile(event) {
-    event.preventDefault();
-    setError("");
-    try {
-      await onSaveProfile({ profession_template: professionTemplate });
-    } catch (saveError) {
-      setError(saveError.message);
-    }
-  }
+  const scopeLabel = scope === "company" ? "company" : "application";
 
   async function createField(event) {
     event.preventDefault();
@@ -49,8 +31,8 @@ export function CustomFieldManager({
       await onCreateField({
         name: name.trim(),
         field_type: fieldType,
-        is_filterable: isFilterable,
         options: fieldOptions,
+        scope,
       });
       setName("");
       setOptions("");
@@ -59,24 +41,23 @@ export function CustomFieldManager({
     }
   }
 
+  async function deleteField(field) {
+    setError("");
+    try {
+      await onDeleteField(field);
+    } catch (deleteError) {
+      setError(deleteError.message);
+    }
+  }
+
   return (
-    <section className="custom-field-manager" aria-label="Custom tracking fields">
-      <h2>Custom data and tracking settings</h2>
-      <form className="editor-grid" onSubmit={saveProfile}>
-        <label>
-          Profession template
-          <input
-            maxLength={100}
-            onChange={(event) => setProfessionTemplate(event.target.value)}
-            placeholder="e.g. Software / DevOps, Cybersecurity, Legal"
-            value={professionTemplate}
-          />
-        </label>
-        <button className="primary-button" type="submit">Save profile</button>
-      </form>
+    <section className="custom-field-manager" aria-label={`${scopeLabel} custom fields`}>
+      <h2>Customize {scopeLabel} fields</h2>
+      <p className="muted">
+        Add fields that match your needs, such as a legal practice area or a technical stack.
+      </p>
 
       <form className="custom-field-form" onSubmit={createField}>
-        <h3>Custom fields</h3>
         <div className="editor-grid">
           <label>
             Field name
@@ -103,20 +84,12 @@ export function CustomFieldManager({
               Options
               <input
                 onChange={(event) => setOptions(event.target.value)}
-                placeholder="AWS, Azure, GCP"
+                placeholder="Employment, Immigration, Corporate"
                 required
                 value={options}
               />
             </label>
           )}
-          <label className="checkbox">
-            <input
-              checked={isFilterable}
-              onChange={(event) => setIsFilterable(event.target.checked)}
-              type="checkbox"
-            />
-            Searchable filter
-          </label>
         </div>
         <button className="primary-button" type="submit">Add custom field</button>
       </form>
@@ -130,13 +103,12 @@ export function CustomFieldManager({
                 <strong>{field.name}</strong>
                 {" · "}
                 {fieldTypes.find((type) => type.value === field.field_type)?.label || field.field_type}
-                {field.is_filterable ? " · Filterable" : " · Not filterable"}
                 {field.options?.length > 0 ? ` · ${field.options.join(", ")}` : ""}
               </span>
               <button
                 aria-label={`Delete ${field.name}`}
                 className="icon-button danger-button"
-                onClick={() => onDeleteField(field)}
+                onClick={() => deleteField(field)}
                 type="button"
               >
                 <Trash2 size={16} />
@@ -145,7 +117,7 @@ export function CustomFieldManager({
           ))}
         </ul>
       ) : (
-        <p className="muted">No custom fields yet. Add fields that fit your profession.</p>
+        <p className="muted">No custom {scopeLabel} fields yet. Add fields that fit your needs.</p>
       )}
     </section>
   );

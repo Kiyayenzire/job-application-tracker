@@ -1,6 +1,7 @@
 import React from "react";
 import { Save, X } from "lucide-react";
 
+import { buildCustomData } from "../utils/applicationForm";
 import { CountryPicker } from "./CountryPicker";
 
 const outsideEUHiringOptions = [
@@ -50,9 +51,19 @@ const workArrangementOptions = [
   ["flexible", "Flexible / varies"],
   ["unknown", "Unknown"],
 ];
+const languageLevelOptions = [
+  ["", "Not specified"],
+  ["A1", "A1"],
+  ["A2", "A2"],
+  ["B1", "B1"],
+  ["B2", "B2"],
+  ["C1", "C1"],
+  ["C2", "C2"],
+];
+const noCustomFields = Object.freeze([]);
 const initialCompany = {
   name: "",
-  country: "de",
+  country: "",
   outside_eu_hiring: "unverified",
   outside_eu_evidence: "",
   relocation_support: "unknown",
@@ -65,20 +76,30 @@ const initialCompany = {
   hiring_pattern: "unknown",
   next_hiring_window: "",
   company_notes: "",
+  custom_data: {},
   language_requirement: "",
+  german_level: "",
+  english_level: "",
   work_arrangement: "unknown",
   relocation_required: false,
 };
 
-export function CompanyForm({ company, countryOptions, onCancel, onSave }) {
-  const [form, setForm] = React.useState(() => createFormState(company));
+export function CompanyForm({ company, countryOptions, customFields = noCustomFields, onCancel, onSave }) {
+  const [form, setForm] = React.useState(() => createFormState(company, customFields));
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
 
-  React.useEffect(() => setForm(createFormState(company)), [company]);
+  React.useEffect(() => setForm(createFormState(company, customFields)), [company, customFields]);
 
   function update(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateCustomField(key, value) {
+    setForm((current) => ({
+      ...current,
+      custom_data: { ...current.custom_data, [key]: value },
+    }));
   }
 
   async function submit(event) {
@@ -97,6 +118,7 @@ export function CompanyForm({ company, countryOptions, onCancel, onSave }) {
           .split(",")
           .map((tag) => tag.trim())
           .filter(Boolean),
+        custom_data: buildCustomData(form.custom_data, customFields),
       });
     } catch (saveError) {
       setError(saveError.message);
@@ -204,6 +226,7 @@ export function CompanyForm({ company, countryOptions, onCancel, onSave }) {
           <label>
             Primary stack match
             <input
+              className="tech-stack-input"
               onChange={(event) => update("primary_stack_match", event.target.value)}
               placeholder="Python, Django, DRF, React, PostgreSQL, AWS, Docker"
               value={form.primary_stack_match}
@@ -231,6 +254,18 @@ export function CompanyForm({ company, countryOptions, onCancel, onSave }) {
             />
           </label>
           <SelectField
+            label="German level"
+            onChange={(value) => update("german_level", value)}
+            options={languageLevelOptions}
+            value={form.german_level}
+          />
+          <SelectField
+            label="English level"
+            onChange={(value) => update("english_level", value)}
+            options={languageLevelOptions}
+            value={form.english_level}
+          />
+          <SelectField
             label="Work arrangement"
             onChange={(value) => update("work_arrangement", value)}
             options={workArrangementOptions}
@@ -245,6 +280,22 @@ export function CompanyForm({ company, countryOptions, onCancel, onSave }) {
           </label>
         </div>
       </fieldset>
+
+      {customFields.length > 0 && (
+        <fieldset className="company-field-group">
+          <legend>Custom company details</legend>
+          <div className="editor-grid">
+            {customFields.map((field) => (
+              <CompanyCustomFieldInput
+                field={field}
+                key={field.id || field.key}
+                onChange={(value) => updateCustomField(field.key, value)}
+                value={form.custom_data[field.key]}
+              />
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       {error && <div className="error" role="alert">{error}</div>}
       <div className="form-actions">
@@ -274,7 +325,46 @@ function SelectField({ label, onChange, options, value }) {
   );
 }
 
-function createFormState(company) {
+function CompanyCustomFieldInput({ field, onChange, value }) {
+  if (field.field_type === "boolean") {
+    return (
+      <label className="checkbox">
+        <input
+          checked={Boolean(value)}
+          onChange={(event) => onChange(event.target.checked)}
+          type="checkbox"
+        />
+        {field.name}
+      </label>
+    );
+  }
+
+  if (field.field_type === "select") {
+    return (
+      <label>
+        {field.name}
+        <select value={value || ""} onChange={(event) => onChange(event.target.value)}>
+          <option value="">Select {field.name.toLowerCase()}</option>
+          {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+      </label>
+    );
+  }
+
+  return (
+    <label>
+      {field.name}
+      <input
+        type={field.field_type === "number" ? "number" : "text"}
+        value={Array.isArray(value) ? value.join(", ") : value ?? ""}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={field.field_type === "tags" ? "Comma-separated values" : ""}
+      />
+    </label>
+  );
+}
+
+function createFormState(company, customFields = []) {
   const current = { ...initialCompany, ...company };
   return {
     ...current,
@@ -282,5 +372,19 @@ function createFormState(company) {
     primary_stack_match: Array.isArray(current.primary_stack_match)
       ? current.primary_stack_match.join(", ")
       : current.primary_stack_match || "",
+    custom_data: {
+      ...(current.custom_data || {}),
+      ...Object.fromEntries(
+        customFields.map((field) => {
+          const value = current.custom_data?.[field.key];
+          return [
+            field.key,
+            field.field_type === "tags" && Array.isArray(value)
+              ? value.join(", ")
+              : value ?? (field.field_type === "boolean" ? false : ""),
+          ];
+        }),
+      ),
+    },
   };
 }

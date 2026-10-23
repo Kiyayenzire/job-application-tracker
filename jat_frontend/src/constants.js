@@ -1,10 +1,3 @@
-export const countries = [
-  { code: "at", name: "Austria" },
-  { code: "ch", name: "Switzerland" },
-  { code: "de", name: "Germany" },
-  { code: "ug", name: "Uganda" },
-];
-
 export const requirementOptions = [
   "Python",
   "Django",
@@ -43,7 +36,7 @@ export const requirementOptions = [
 
 export const statuses = ["to send", "Follow Up", "Interviewed", "Rejected", "Got It"];
 export const applicationTypes = ["Company Portal", "Job Portal", "Reference/Direct", "Unsolicited"];
-export const languageLevels = ["Beginner", "Intermediate", "Advanced"];
+export const languageLevels = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
 export const statusClass = {
   "to send": "status-to-send",

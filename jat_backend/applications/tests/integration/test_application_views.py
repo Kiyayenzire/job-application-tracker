@@ -29,6 +29,8 @@ class ApplicationApiTests(TestCase):
         self.assertEqual(response.data["country"], "de")
         self.assertEqual(response.data["no"], response.data["id"])
         self.assertEqual(response.data["owner"], self.user.id)
+        self.assertIsNone(response.data["company"])
+        self.assertEqual(response.data["company_name"], self.payload["company_name"])
 
     def test_creates_application_in_a_country_outside_the_original_choices(self):
         response = self.client.post(
@@ -118,7 +120,8 @@ class ApplicationApiTests(TestCase):
         self.assertEqual(requirements.status_code, status.HTTP_200_OK)
         self.assertIn({"code": "de", "name": "Germany"}, countries.data)
         self.assertIn({"code": "ua", "name": "Ukraine"}, countries.data)
+        self.assertIn({"code": "xk", "name": "Kosovo"}, countries.data)
         self.assertIn({"code": "us", "name": "United States"}, countries.data)
-        self.assertGreater(len(countries.data), 200)
+        self.assertGreaterEqual(len(countries.data), 250)
         self.assertIn("Docker", requirements.data["other_requirements"])
         self.assertIn("Django REST Framework", requirements.data["other_requirements"])

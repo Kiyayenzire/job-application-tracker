@@ -8,12 +8,11 @@ export function ApplicationTable({
   applications,
   countryOptions = [],
   customFields = [],
-  emptyMessage = "No applications yet.",
   onEdit,
   onDelete,
 }) {
   if (!applications.length) {
-    return <div className="empty">{emptyMessage}</div>;
+    return <div className="empty">No applications yet.</div>;
   }
 
   return (

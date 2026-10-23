@@ -3,6 +3,7 @@ import { Pencil } from "lucide-react";
 export function CompanyTable({
   companies,
   countryOptions,
+  customFields = [],
   emptyMessage = "No companies tracked yet. Add a company to start recording eligibility and hiring research.",
   onEdit,
 }) {
@@ -21,6 +22,9 @@ export function CompanyTable({
             <th>Priority</th>
             <th>Stack match</th>
             <th>Hiring pattern</th>
+            <th>German level</th>
+            <th>English level</th>
+            {customFields.map((field) => <th key={field.key}>{field.name}</th>)}
             <th>Applications</th>
             <th>Actions</th>
           </tr>
@@ -34,6 +38,11 @@ export function CompanyTable({
               <td>{company.priority === "avoid" ? "Avoid" : company.priority}</td>
               <td>{company.tech_stack_match == null ? "—" : `${company.tech_stack_match}/100`}</td>
               <td>{company.hiring_pattern_label || labels[company.hiring_pattern] || company.hiring_pattern}</td>
+              <td>{company.german_level || "—"}</td>
+              <td>{company.english_level || "—"}</td>
+              {customFields.map((field) => (
+                <td key={field.key}>{formatCustomValue(company.custom_data?.[field.key])}</td>
+              ))}
               <td>{company.application_count ?? 0}</td>
               <td>
                 <button
@@ -52,6 +61,12 @@ export function CompanyTable({
       </table>
     </section>
   );
+}
+
+function formatCustomValue(value) {
+  if (value == null || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return Array.isArray(value) ? value.join(", ") : String(value);
 }
 
 const labels = {

@@ -130,6 +130,22 @@ export async function loginUser(payload) {
   return data;
 }
 
+export async function loginWithGoogle(credential) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/google/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ credential }),
+  });
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw Object.assign(new Error(data.detail || "Unable to sign in with Google"), {
+      details: data,
+      status: response.status,
+    });
+  }
+  return data;
+}
+
 export async function registerUser(payload) {
   const response = await fetch(`${API_BASE_URL}/api/auth/register/`, {
     method: "POST",
@@ -188,16 +204,16 @@ export async function deleteCustomField(id) {
   }
 }
 
-export async function fetchTrackingProfile() {
+export async function getProfile() {
   const response = await fetch(`${API_BASE_URL}/api/profile/`, { headers: authHeaders() });
   const data = await parseJsonResponse(response);
   if (!response.ok) {
-    throw Object.assign(new Error(data.detail || "Unable to load tracking profile"), { details: data });
+    throw Object.assign(new Error(data.detail || "Unable to load profile"), { details: data });
   }
   return data;
 }
 
-export async function updateTrackingProfile(payload) {
+export async function updateProfile(payload) {
   const response = await fetch(`${API_BASE_URL}/api/profile/`, {
     method: "PATCH",
     headers: authHeaders(),
@@ -205,7 +221,29 @@ export async function updateTrackingProfile(payload) {
   });
   const data = await parseJsonResponse(response);
   if (!response.ok) {
-    throw Object.assign(new Error(data.detail || "Unable to save tracking profile"), { details: data });
+    throw Object.assign(new Error(data.detail || "Unable to save profile"), { details: data });
+  }
+  return data;
+}
+
+export async function getCV() {
+  const response = await fetch(`${API_BASE_URL}/api/cv/`, { headers: authHeaders() });
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw Object.assign(new Error(data.detail || "Unable to load CV"), { details: data });
+  }
+  return data;
+}
+
+export async function updateCV(payload) {
+  const response = await fetch(`${API_BASE_URL}/api/cv/`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw Object.assign(new Error(data.detail || "Unable to save CV"), { details: data });
   }
   return data;
 }

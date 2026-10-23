@@ -27,8 +27,8 @@ services:
       DB_PORT: 3306
       RUN_MIGRATIONS: "true"
     command: gunicorn jat.wsgi:application --bind 0.0.0.0:8007
-    ports:
-      - "8007:8007"
+    expose:
+      - "8007"
     restart: unless-stopped
     depends_on:
       db:
@@ -39,8 +39,11 @@ services:
       context: ./jat_frontend
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-${GOOGLE_OAUTH_CLIENT_ID:-}}
+    environment:
+        DJANGO_ADMIN_URL: ${DJANGO_ADMIN_URL:-admin}
     ports:
-      - "5177:5177"
+        - "127.0.0.1:5177:5177"
     restart: unless-stopped
     depends_on:
       - backend
