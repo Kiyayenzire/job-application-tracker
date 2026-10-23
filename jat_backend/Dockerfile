@@ -1,25 +1,26 @@
-FROM python:3.12-slim
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+FROM python:3.11-slim
 
 WORKDIR /app
 
-ARG REQUIREMENTS_FILE=requirements/dev.txt
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        default-libmysqlclient-dev \
-        pkg-config \
+# Install system dependencies for mysqlclient
+RUN apt-get update && apt-get install -y \
+    default-libmysqlclient-dev \
+    pkg-config \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy requirements
+COPY requirements.txt ./
 COPY requirements/ ./requirements/
-RUN pip install --no-cache-dir -r "${REQUIREMENTS_FILE}"
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Install python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy backend application code
 COPY . .
 
-ENTRYPOINT ["/entrypoint.sh"]
+# Copy entrypoint, make executable, and automatically strip Windows CRLF line endings
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh && sed -i 's/\r$//' /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]
