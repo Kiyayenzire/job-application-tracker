@@ -1,50 +1,57 @@
 services:
   db:
     image: mysql:8.4
+    container_name: jat_db
+    restart: always
     environment:
       MYSQL_DATABASE: ${DB_NAME:?Set DB_NAME in .env}
       MYSQL_USER: ${DB_USER:?Set DB_USER in .env}
       MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-${DB_PASSWORD:?Set DB_PASSWORD in .env}}
-    volumes:
-      - db_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
+      interval: 3s
       timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 20s
+    volumes:
+      - db_data:/var/lib/mysql
 
-  backend:
-    build:
-      context: ./jat_backend
-      args:
-        REQUIREMENTS_FILE: requirements/prod.txt
+  migration:
+    image: ghcr.io/kiyayenzire/jat_backend:${IMAGE_TAG:-latest}
+    container_name: jat_migration
+    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput"
     env_file:
       - .env
-    environment:
-      DJANGO_ENV: production
-      DB_HOST: db
-      DB_PORT: 3306
-      RUN_MIGRATIONS: "true"
-    command: gunicorn jat.wsgi:application --bind 0.0.0.0:8007
-    expose:
-      - "8007"
-    restart: unless-stopped
+    volumes:
+      - ./staticfiles:/app/staticfiles
     depends_on:
       db:
         condition: service_healthy
 
-  frontend:
-    build:
-      context: ./jat_frontend
-      args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
-        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-${GOOGLE_OAUTH_CLIENT_ID:-}}
-    environment:
-        DJANGO_ADMIN_URL: ${DJANGO_ADMIN_URL:-admin}
+  backend:
+    image: ghcr.io/kiyayenzire/jat_backend:${IMAGE_TAG:-latest}
+    container_name: jat_backend
+    restart: always
     ports:
-        - "127.0.0.1:5177:5177"
-    restart: unless-stopped
+      - "127.0.0.1:8007:8007"
+    env_file:
+      - .env
+    volumes:
+      - ./staticfiles:/app/staticfiles
+      - ./media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+
+  frontend:
+    image: ghcr.io/kiyayenzire/jat_frontend:${IMAGE_TAG:-latest}
+    container_name: jat_frontend
+    restart: always
+    ports:
+      - "127.0.0.1:5177:5177"
     depends_on:
       - backend
 
