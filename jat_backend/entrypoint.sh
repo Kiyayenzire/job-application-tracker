@@ -1,12 +1,17 @@
-#!/bin/sh
-set -eu
+FROM python:3.11-slim
 
-if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
-    python manage.py migrate --noinput
-fi
+WORKDIR /app
 
-if [ "${DJANGO_ENV:-}" = "production" ]; then
-    python manage.py collectstatic --noinput
-fi
+RUN apt-get update && apt-get install -y default-libmysqlclient-dev build-essential && rm -rf /var/lib/apt/lists/*
 
-exec "$@"
+# Crucial: Copy BOTH requirements.txt and base.txt together
+COPY requirements.txt base.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Then copy the rest of your app code
+COPY . .
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
