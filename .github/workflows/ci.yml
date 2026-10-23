@@ -98,13 +98,12 @@ jobs:
       - name: Deploy on Droplet
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          host: ${{ secrets.DROPLET_IP }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
             set -eu
-            cd /opt/job-application-tracker
+            cd /home/deploy/job-application-tracker
             git fetch origin main
             git checkout main
             git pull --ff-only origin main
