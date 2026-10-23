@@ -79,6 +79,7 @@ DJANGO_LOG_LEVEL = env.str(
     "DJANGO_LOG_LEVEL",
     default="DEBUG" if DEBUG else "INFO",
 ).upper()
+GOOGLE_OAUTH_CLIENT_ID = env.str("GOOGLE_OAUTH_CLIENT_ID", default="")
 
 # =============================================================================
 # 2. DJANGO APPLICATIONS AND MIDDLEWARE
@@ -118,7 +119,7 @@ ROOT_URLCONF = "jat.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [

@@ -14,7 +14,7 @@ export function createApplication(overrides = {}) {
     url: "https://example.com/jobs/1",
     applied_on: "2026-05-15",
     english_requirement: "Yes",
-    english_level: "Advanced",
+    english_level: "B2",
     german_requirement: "No",
     german_level: "",
     other_requirements: [

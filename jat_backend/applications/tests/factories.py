@@ -19,7 +19,7 @@ def application_values(**overrides):
         "url": "https://example.com/jobs/1",
         "applied_on": timezone.localdate(),
         "english_requirement": "Yes",
-        "english_level": "Advanced",
+        "english_level": "B2",
         "german_requirement": "Undefined",
         "german_level": "",
         "other_requirements": [
@@ -60,6 +60,7 @@ def create_company(owner, **overrides):
         "owner": owner,
         "name": "Acme GmbH",
         "country": "de",
+        "custom_data": {},
         "outside_eu_hiring": Company.OutsideEUHiring.UNVERIFIED,
         "priority": Company.Priority.B,
         "tech_stack_match": None,
@@ -72,11 +73,11 @@ def create_company(owner, **overrides):
 def create_custom_field(owner, **overrides):
     values = {
         "user": owner,
+        "scope": CustomFieldDefinition.Scope.APPLICATION,
         "name": "Tech Stack",
         "key": "tech_stack",
         "field_type": CustomFieldDefinition.FieldType.TAGS,
         "options": [],
-        "is_filterable": True,
     }
     values.update(overrides)
     return CustomFieldDefinition.objects.create(**values)

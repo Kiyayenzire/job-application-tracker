@@ -21,12 +21,44 @@ class TrackingProfile(models.Model):
         related_name="tracking_profile",
     )
     profession_template = models.CharField(max_length=100, blank=True)
+    location = models.CharField(max_length=150, blank=True)
 
     def __str__(self):
         return f"Tracking profile for {self.user.username}"
 
 
+class GoogleIdentity(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="google_identity",
+    )
+    subject = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return f"Google identity for {self.user.username}"
+
+
+class CandidateCV(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="candidate_cv",
+    )
+    professional_summary = models.TextField(blank=True)
+    experience = models.JSONField(default=list, blank=True)
+    education = models.JSONField(default=list, blank=True)
+    skills = models.JSONField(default=list, blank=True)
+
+    def __str__(self):
+        return f"CV for {self.user.username}"
+
+
 class CustomFieldDefinition(models.Model):
+    class Scope(models.TextChoices):
+        APPLICATION = "application", "Application"
+        COMPANY = "company", "Company"
+
     class FieldType(models.TextChoices):
         TEXT = "text", "Text"
         TAGS = "tags", "Multi-select / tags"
@@ -39,22 +71,26 @@ class CustomFieldDefinition(models.Model):
         on_delete=models.CASCADE,
         related_name="custom_field_definitions",
     )
+    scope = models.CharField(
+        max_length=20,
+        choices=Scope.choices,
+        default=Scope.APPLICATION,
+    )
     name = models.CharField(max_length=50)
     key = models.SlugField(max_length=50)
     field_type = models.CharField(max_length=20, choices=FieldType.choices)
     options = models.JSONField(default=list, blank=True)
-    is_filterable = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["name", "id"]
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "key"],
-                name="unique_custom_field_key_per_user",
+                fields=["user", "scope", "key"],
+                name="unique_custom_field_key_per_scope",
             ),
             models.UniqueConstraint(
-                fields=["user", "name"],
-                name="unique_custom_field_name_per_user",
+                fields=["user", "scope", "name"],
+                name="unique_custom_field_name_per_scope",
             ),
         ]
 
@@ -63,6 +99,14 @@ class CustomFieldDefinition(models.Model):
 
 
 class Company(models.Model):
+    class LanguageLevel(models.TextChoices):
+        A1 = "A1", "A1"
+        A2 = "A2", "A2"
+        B1 = "B1", "B1"
+        B2 = "B2", "B2"
+        C1 = "C1", "C1"
+        C2 = "C2", "C2"
+
     class OutsideEUHiring(models.TextChoices):
         CONFIRMED = "confirmed", "Confirmed"
         LIKELY = "likely", "Likely"
@@ -166,7 +210,20 @@ class Company(models.Model):
     )
     next_hiring_window = models.CharField(max_length=100, blank=True)
     company_notes = models.TextField(blank=True)
+    custom_data = models.JSONField(default=dict, blank=True)
     language_requirement = models.CharField(max_length=100, blank=True)
+    german_level = models.CharField(
+        max_length=2,
+        choices=LanguageLevel.choices,
+        blank=True,
+        default="",
+    )
+    english_level = models.CharField(
+        max_length=2,
+        choices=LanguageLevel.choices,
+        blank=True,
+        default="",
+    )
     work_arrangement = models.CharField(
         max_length=20,
         choices=WorkArrangement.choices,
@@ -248,9 +305,12 @@ class Application(models.Model):
         MID_YEAR = "Mid-year", "Mid-year"
 
     class LanguageLevel(models.TextChoices):
-        BEGINNER = "Beginner", "Beginner"
-        INTERMEDIATE = "Intermediate", "Intermediate"
-        ADVANCED = "Advanced", "Advanced"
+        A1 = "A1", "A1"
+        A2 = "A2", "A2"
+        B1 = "B1", "B1"
+        B2 = "B2", "B2"
+        C1 = "C1", "C1"
+        C2 = "C2", "C2"
 
     class EnglishRequirement(models.TextChoices):
         YES = "Yes", "Yes"

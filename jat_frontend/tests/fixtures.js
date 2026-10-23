@@ -7,7 +7,20 @@ export const test = base.extend({
   authenticatedPage: async ({ page }, use) => {
     let customFields = [];
     let companies = [];
-    let profile = { profession_template: "" };
+    let profile = {
+      username: "e2e-user",
+      first_name: "",
+      last_name: "",
+      email: "",
+      location: "",
+      profession_template: "",
+    };
+    let cv = {
+      professional_summary: "",
+      experience: [],
+      education: [],
+      skills: [],
+    };
     await page.addInitScript(() => {
       localStorage.setItem("authToken", "e2e-test-token");
     });
@@ -26,6 +39,18 @@ export const test = base.extend({
         ],
       }),
     );
+    await page.route("**/api/profile/", async (route) => {
+      if (route.request().method() === "PATCH") {
+        profile = { ...profile, ...route.request().postDataJSON() };
+      }
+      await route.fulfill({ json: profile });
+    });
+    await page.route("**/api/cv/", async (route) => {
+      if (route.request().method() === "PATCH") {
+        cv = { ...cv, ...route.request().postDataJSON() };
+      }
+      await route.fulfill({ json: cv });
+    });
     await page.route("**/api/companies/**", async (route) => {
       const request = route.request();
       if (request.method() === "GET") {
@@ -93,11 +118,7 @@ export const test = base.extend({
       }
       if (request.method() === "POST") {
         const payload = request.postDataJSON();
-        const field = {
-          ...payload,
-          id: customFields.length + 1,
-          key: payload.name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
-        };
+        const field = { ...payload, id: customFields.length + 1 };
         customFields = [...customFields, field];
         await route.fulfill({ status: 201, json: field });
         return;
@@ -110,15 +131,10 @@ export const test = base.extend({
       }
       await route.fulfill({ status: 405, json: { detail: "Method not allowed." } });
     });
-    await page.route("**/api/profile/", async (route) => {
-      if (route.request().method() === "PATCH") {
-        profile = { ...profile, ...route.request().postDataJSON() };
-      }
-      await route.fulfill({ json: profile });
-    });
 
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Job Applications" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Job Application Tracker" })).toBeVisible();
+    await expect(page).toHaveURL(/\/applications$/);
     await use(page);
   },
 });

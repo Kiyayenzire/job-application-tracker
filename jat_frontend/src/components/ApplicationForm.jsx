@@ -1,7 +1,7 @@
 import React from "react";
 import { Save, X } from "lucide-react";
 
-import { applicationTypes, countries, languageLevels, requirementOptions, statuses } from "../constants";
+import { applicationTypes, languageLevels, requirementOptions, statuses } from "../constants";
 import { CountryPicker } from "./CountryPicker";
 import {
   buildApplicationPayload,
@@ -15,7 +15,7 @@ const today = new Date().toISOString().slice(0, 10);
 const noCustomFields = Object.freeze([]);
 
 const initialForm = {
-  country: "de",
+  country: "",
   company: "",
   vacancy_status: "current",
   outside_eu_response: "",
@@ -41,7 +41,7 @@ const initialForm = {
 };
 
 export function ApplicationForm({
-  countryOptions = countries,
+  countryOptions = [],
   companies = [],
   customFields = noCustomFields,
   initialValues,
@@ -60,7 +60,7 @@ export function ApplicationForm({
   const canSubmit = canSubmitApplication({
     keywords,
     otherRequirements: form.other_requirements,
-  }) && Boolean(form.company) && isVacancyDetailsComplete({
+  }) && Boolean(form.company_name.trim()) && isVacancyDetailsComplete({
     vacancyStatus: form.vacancy_status,
     outsideEUResponse: form.outside_eu_response,
     hiringPattern: form.hiring_pattern,
@@ -111,11 +111,11 @@ export function ApplicationForm({
     setError("");
     try {
       const payload = buildApplicationPayload(form, customFields);
+      payload.company_name = form.company_name.trim();
       if (form.company) {
         payload.company = Number(form.company);
-        payload.company_name = companies.find(
-          (company) => company.id === Number(form.company),
-        )?.name || "";
+      } else {
+        payload.company = null;
       }
       await onSave(payload);
     } catch (err) {
@@ -129,26 +129,31 @@ export function ApplicationForm({
     <form aria-label="Application details" className="editor" onSubmit={submit}>
       <div className="editor-grid">
         <label>
-          Company
-          <select
+          Company name
+          <input
+            autoComplete="organization"
+            list="application-company-options"
             onChange={(event) => {
+              const companyName = event.target.value;
               const selectedCompany = companies.find(
-                (company) => company.id === Number(event.target.value),
+                (company) => company.name.trim().toLocaleLowerCase()
+                  === companyName.trim().toLocaleLowerCase(),
               );
               setForm((current) => ({
                 ...current,
-                company: event.target.value,
+                company_name: companyName,
+                company: selectedCompany ? String(selectedCompany.id) : "",
                 ...(selectedCompany ? { country: selectedCompany.country } : {}),
               }));
             }}
             required
-            value={form.company}
-          >
-            <option value="">Select company</option>
+            value={form.company_name}
+          />
+          <datalist id="application-company-options">
             {companies.map((company) => (
-              <option key={company.id} value={company.id}>{company.name}</option>
+              <option key={company.id} value={company.name} />
             ))}
-          </select>
+          </datalist>
         </label>
         <CountryPicker
           countries={countryOptions}
@@ -168,7 +173,7 @@ export function ApplicationForm({
         </label>
         {form.company && (
           <p className="muted linked-company-note">
-            Company-level research is stored once on the selected company record.
+            Optional company research is linked from this company record.
           </p>
         )}
         <label>
@@ -325,7 +330,7 @@ export function ApplicationForm({
       )}
       {customFields.length === 0 && (
         <p className="muted">
-          No custom data fields configured yet. Add them in Custom data &amp; profile settings.
+          No custom application fields are configured for this account.
         </p>
       )}
 
@@ -367,6 +372,8 @@ function buildFormState(initialValues, customFields) {
   if (!initialValues) {
     return {
       ...initialForm,
+      company: "",
+      company_name: "",
       other_requirements: requirementOptions.slice(0, 7),
       custom_data: customDataDefaults,
     };
@@ -430,7 +437,7 @@ function CustomFieldInput({ field, onChange, value }) {
       {field.name}
       <input
         type={field.field_type === "number" ? "number" : "text"}
-        value={Array.isArray(value) ? value.join(", ") : value || ""}
+        value={Array.isArray(value) ? value.join(", ") : value ?? ""}
         onChange={(event) => onChange(event.target.value)}
         placeholder={field.field_type === "tags" ? "Comma-separated values" : ""}
       />

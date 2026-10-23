@@ -1,19 +1,34 @@
 
 
+import hashlib
+
+from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from django.db.models import Count, Q
+from django.db import IntegrityError, transaction
+from django.db.models import Count
+from django.utils.text import slugify
+from google.auth.exceptions import GoogleAuthError
+from google.auth.transport.requests import Request as GoogleRequest
+from google.oauth2 import id_token
 from rest_framework import permissions, status, viewsets
-from rest_framework.exceptions import ValidationError
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Application, Company, CustomFieldDefinition, TrackingProfile
+from .models import (
+    Application,
+    CandidateCV,
+    Company,
+    CustomFieldDefinition,
+    GoogleIdentity,
+    TrackingProfile,
+)
 from .country_options import COUNTRY_OPTIONS
 from .serializers import (
     ApplicationSerializer,
+    CandidateCVSerializer,
     CompanySerializer,
     CustomFieldDefinitionSerializer,
     TrackingProfileSerializer,
@@ -62,81 +77,10 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        params = self.request.query_params
-        queryset = Application.objects.filter(owner=self.request.user)
-
-        for parameter, field in (
-            ("country", "country"),
-            ("vacancy_status", "vacancy_status"),
-            ("application_type", "application_type"),
-            ("outside_eu_response", "outside_eu_response"),
-            ("hiring_pattern", "hiring_pattern"),
-            ("status", "status"),
-        ):
-            value = params.get(parameter)
-            if value:
-                queryset = queryset.filter(**{field: value})
-
-        date_from = params.get("date_from")
-        date_to = params.get("date_to")
-        if date_from:
-            queryset = queryset.filter(applied_on__gte=date_from)
-        if date_to:
-            queryset = queryset.filter(applied_on__lte=date_to)
-
-        salary_min = params.get("salary_min")
-        salary_max = params.get("salary_max")
-        if salary_min:
-            queryset = queryset.filter(
-                Q(salary_max__gte=salary_min)
-                | Q(salary_max__isnull=True, salary_min__gte=salary_min)
-            )
-        if salary_max:
-            queryset = queryset.filter(
-                Q(salary_min__lte=salary_max)
-                | Q(salary_min__isnull=True, salary_max__lte=salary_max)
-            )
-
-        custom_filters = {
-            key.removeprefix("custom_"): value
-            for key, value in params.items()
-            if key.startswith("custom_") and value
-        }
-        if custom_filters:
-            definitions = {
-                definition.key: definition
-                for definition in CustomFieldDefinition.objects.filter(
-                    user=self.request.user,
-                    is_filterable=True,
-                    key__in=custom_filters,
-                )
-            }
-            unknown_keys = set(custom_filters) - set(definitions)
-            if unknown_keys:
-                raise ValidationError(
-                    {
-                        "custom_filters": (
-                            "Unknown or non-filterable custom field: "
-                            + ", ".join(sorted(unknown_keys))
-                        )
-                    }
-                )
-
-            values = list(queryset.order_by("-applied_on", "-id"))
-            for key, expected in custom_filters.items():
-                definition = definitions[key]
-                values = [
-                    application
-                    for application in values
-                    if _matches_custom_value(
-                        definition,
-                        application.custom_data.get(key),
-                        expected,
-                    )
-                ]
-            return values
-
-        return queryset.order_by("-applied_on", "-id")
+        return Application.objects.filter(owner=self.request.user).order_by(
+            "-applied_on",
+            "-id",
+        )
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -172,27 +116,56 @@ def tracking_profile(request):
     profile, _created = TrackingProfile.objects.get_or_create(user=request.user)
     if request.method == "PATCH":
         serializer = TrackingProfileSerializer(
-            profile,
             data=request.data,
             partial=True,
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        profile_updates = {}
+        user_updates = {}
+        for field, value in serializer.validated_data.items():
+            if field in {"location", "profession_template"}:
+                profile_updates[field] = value
+            elif field != "username":
+                user_updates[field] = value
+        for field, value in profile_updates.items():
+            setattr(profile, field, value)
+        if profile_updates:
+            profile.save(update_fields=list(profile_updates))
+        for field, value in user_updates.items():
+            setattr(request.user, field, value)
+        if user_updates:
+            request.user.save(update_fields=[*user_updates])
+        profile_data = _tracking_profile_data(request.user, profile)
+        serializer = TrackingProfileSerializer(instance=profile_data)
     else:
-        serializer = TrackingProfileSerializer(profile)
+        serializer = TrackingProfileSerializer(
+            instance=_tracking_profile_data(request.user, profile),
+        )
     return Response(serializer.data)
 
 
-def _matches_custom_value(definition, actual, expected):
-    if actual is None:
-        return False
-    if definition.field_type == CustomFieldDefinition.FieldType.TAGS:
-        expected_tags = {value.strip().casefold() for value in expected.split(",") if value.strip()}
-        actual_tags = {value.casefold() for value in actual}
-        return bool(expected_tags) and expected_tags.issubset(actual_tags)
-    if definition.field_type == CustomFieldDefinition.FieldType.TEXT:
-        return expected.casefold() in str(actual).casefold()
-    return str(actual).casefold() == expected.casefold()
+@api_view(["GET", "PATCH"])
+@permission_classes([permissions.IsAuthenticated])
+def candidate_cv(request):
+    cv, _created = CandidateCV.objects.get_or_create(user=request.user)
+    if request.method == "PATCH":
+        serializer = CandidateCVSerializer(cv, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+    else:
+        serializer = CandidateCVSerializer(cv)
+    return Response(serializer.data)
+
+
+def _tracking_profile_data(user, profile):
+    return {
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "email": user.email,
+        "location": profile.location,
+        "profession_template": profile.profession_template,
+    }
 
 
 class AuthRegisterView(APIView):
@@ -230,6 +203,149 @@ class AuthLoginView(APIView):
         token, _ = Token.objects.get_or_create(user=user)
 
         return Response({"token": token.key, "user": {"id": user.id, "username": user.username}}, status=status.HTTP_200_OK)
+
+
+class GoogleAuthView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        if not settings.GOOGLE_OAUTH_CLIENT_ID:
+            return Response(
+                {"detail": "Google sign-in is not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        credential = request.data.get("credential")
+        if not isinstance(credential, str) or not credential:
+            return Response(
+                {"detail": "A Google credential is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            claims = id_token.verify_oauth2_token(
+                credential,
+                GoogleRequest(),
+                settings.GOOGLE_OAUTH_CLIENT_ID,
+            )
+        except ValueError:
+            return Response(
+                {"detail": "The Google credential is invalid or expired."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        except GoogleAuthError:
+            return Response(
+                {"detail": "Google sign-in is temporarily unavailable."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        subject = claims.get("sub")
+        email = claims.get("email")
+        given_name = claims.get("given_name")
+        family_name = claims.get("family_name")
+        if (
+            not isinstance(subject, str)
+            or not subject
+            or not isinstance(email, str)
+            or not email
+            or claims.get("email_verified") is not True
+        ):
+            return Response(
+                {"detail": "Google must provide a verified email address."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        email = email.strip().lower()
+        if not email:
+            return Response(
+                {"detail": "Google must provide a verified email address."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not isinstance(given_name, str):
+            given_name = ""
+        if not isinstance(family_name, str):
+            family_name = ""
+
+        try:
+            with transaction.atomic():
+                identity = (
+                    GoogleIdentity.objects.select_related("user")
+                    .filter(subject=subject)
+                    .first()
+                )
+                if identity:
+                    user = identity.user
+                else:
+                    matching_users = list(
+                        User.objects.filter(email__iexact=email).order_by("id")[:2]
+                    )
+                    if len(matching_users) > 1:
+                        return Response(
+                            {
+                                "detail": (
+                                    "More than one account uses this email. "
+                                    "Sign in with your username and contact support."
+                                )
+                            },
+                            status=status.HTTP_409_CONFLICT,
+                        )
+
+                    user = matching_users[0] if matching_users else None
+                    if user and GoogleIdentity.objects.filter(user=user).exists():
+                        return Response(
+                            {
+                                "detail": (
+                                    "This account is already linked to a different "
+                                    "Google account."
+                                )
+                            },
+                            status=status.HTTP_409_CONFLICT,
+                        )
+
+                    if user is None:
+                        user = User.objects.create_user(
+                            username=_google_username(email, subject),
+                            password=None,
+                            email=email,
+                            first_name=given_name[:150],
+                            last_name=family_name[:150],
+                        )
+
+                    GoogleIdentity.objects.create(user=user, subject=subject)
+        except IntegrityError:
+            identity = (
+                GoogleIdentity.objects.select_related("user")
+                .filter(subject=subject)
+                .first()
+            )
+            if identity is None:
+                return Response(
+                    {"detail": "Unable to link this Google account."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            user = identity.user
+
+        login(request, user)
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response(
+            {
+                "token": token.key,
+                "user": {"id": user.id, "username": user.username},
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+def _google_username(email, subject):
+    local_part = email.split("@", maxsplit=1)[0]
+    base = slugify(local_part)[:130] or "google-user"
+    suffix = hashlib.sha256(subject.encode("utf-8")).hexdigest()[:12]
+    username = f"{base}-{suffix}"
+    counter = 1
+    while User.objects.filter(username=username).exists():
+        username = f"{base}-{suffix}-{counter}"
+        counter += 1
+    return username
 
 
 class AuthLogoutView(APIView):

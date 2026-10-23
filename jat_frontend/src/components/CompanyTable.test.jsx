@@ -15,6 +15,8 @@ describe("CompanyTable", () => {
           priority: "A",
           tech_stack_match: 85,
           hiring_pattern_label: "Q4-Q1",
+          german_level: "B1",
+          english_level: "C2",
           application_count: 2,
         }]}
         countryOptions={[{ code: "de", name: "Germany" }]}
@@ -26,6 +28,8 @@ describe("CompanyTable", () => {
     expect(screen.getByRole("cell", { name: "Germany" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "Unverified" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "85/100" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "B1" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "C2" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "2" })).toBeInTheDocument();
   });
 
@@ -41,5 +45,24 @@ describe("CompanyTable", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit Entrix" }));
 
     expect(onEdit).toHaveBeenCalledWith(company);
+  });
+
+  it("shows company-specific custom fields as table columns", () => {
+    render(
+      <CompanyTable
+        companies={[{
+          id: 3,
+          name: "Legal Partners",
+          country: "ug",
+          custom_data: { practice_area: ["Employment", "Immigration"] },
+        }]}
+        countryOptions={[{ code: "ug", name: "Uganda" }]}
+        customFields={[{ key: "practice_area", name: "Practice Area" }]}
+        onEdit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("columnheader", { name: "Practice Area" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Employment, Immigration" })).toBeInTheDocument();
   });
 });

@@ -6,6 +6,10 @@ export default defineConfig({
   server: {
     port: 5177,
     strictPort: true,
+    watch: {
+      usePolling: true,
+      interval: 1000,
+    },
   },
   test: {
     environment: "jsdom",

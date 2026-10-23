@@ -99,12 +99,11 @@ def clean_application_fields(
 
 def _validate_language(field, requirement, level, errors):
     level_field = f"{field}_level"
-    valid_levels = {"Beginner", "Intermediate", "Advanced"}
+    valid_levels = {"A1", "A2", "B1", "B2", "C1", "C2"}
 
     if requirement == "Yes" and level not in valid_levels:
         errors[level_field] = (
-            "Select Beginner, Intermediate, or Advanced "
-            "when requirement is Yes."
+            "Select A1, A2, B1, B2, C1, or C2 when requirement is Yes."
         )
 
     if requirement != "Yes" and level:

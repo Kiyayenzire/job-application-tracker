@@ -14,9 +14,9 @@ from .custom_field_rules import (
 )
 from .models import (
     Application,
+    CandidateCV,
     Company,
     CustomFieldDefinition,
-    TrackingProfile,
 )
 
 
@@ -34,6 +34,7 @@ class CompanySerializer(serializers.ModelSerializer):
         required=False,
         default=list,
     )
+    custom_data = serializers.JSONField(required=False, default=dict)
 
     class Meta:
         model = Company
@@ -55,7 +56,10 @@ class CompanySerializer(serializers.ModelSerializer):
             "hiring_pattern",
             "next_hiring_window",
             "company_notes",
+            "custom_data",
             "language_requirement",
+            "german_level",
+            "english_level",
             "work_arrangement",
             "relocation_required",
             "created_at",
@@ -83,6 +87,32 @@ class CompanySerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate(self, attrs):
+        if "custom_data" in attrs:
+            custom_data = attrs["custom_data"]
+            request = self.context.get("request")
+            if request is None and custom_data == {}:
+                pass
+            elif request is None:
+                raise serializers.ValidationError(
+                    {"custom_data": "A user context is required to validate custom data."}
+                )
+            else:
+                try:
+                    validate_custom_data(
+                        custom_data,
+                        request.user,
+                        scope=CustomFieldDefinition.Scope.COMPANY,
+                        existing_data=(
+                            self.instance.custom_data
+                            if self.instance
+                            else None
+                        ),
+                    )
+                except CustomDataValidationError as error:
+                    raise serializers.ValidationError(error.errors) from error
+        return attrs
+
 
 class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -98,11 +128,11 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "user",
+            "scope",
             "name",
             "key",
             "field_type",
             "options",
-            "is_filterable",
         ]
         read_only_fields = ["id", "user", "key"]
 
@@ -138,7 +168,14 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
             )
 
         user = self.context["request"].user
-        duplicates = CustomFieldDefinition.objects.filter(user=user).filter(
+        scope = attrs.get(
+            "scope",
+            getattr(self.instance, "scope", CustomFieldDefinition.Scope.APPLICATION),
+        )
+        duplicates = CustomFieldDefinition.objects.filter(
+            user=user,
+            scope=scope,
+        ).filter(
             Q(name__iexact=name)
             | Q(key=key)
         )
@@ -162,13 +199,55 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
-class TrackingProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TrackingProfile
-        fields = ["profession_template"]
+class TrackingProfileSerializer(serializers.Serializer):
+    username = serializers.CharField(read_only=True)
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    email = serializers.EmailField(max_length=254, required=False, allow_blank=True)
+    location = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    profession_template = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+    )
 
     def validate_profession_template(self, value):
         return value.strip()
+
+    def validate_location(self, value):
+        return value.strip()
+
+    def validate_first_name(self, value):
+        return value.strip()
+
+    def validate_last_name(self, value):
+        return value.strip()
+
+
+class CandidateCVSerializer(serializers.ModelSerializer):
+    class StrictStringField(serializers.CharField):
+        def to_internal_value(self, data):
+            if not isinstance(data, str):
+                raise serializers.ValidationError("Expected a string value.")
+            return super().to_internal_value(data)
+
+    experience = serializers.ListField(
+        child=StrictStringField(max_length=500),
+        required=False,
+    )
+    education = serializers.ListField(
+        child=StrictStringField(max_length=500),
+        required=False,
+    )
+    skills = serializers.ListField(
+        child=StrictStringField(max_length=100),
+        required=False,
+    )
+
+    class Meta:
+        model = CandidateCV
+        fields = ["professional_summary", "experience", "education", "skills"]
+        extra_kwargs = {"professional_summary": {"max_length": 3000}}
 
 
 class ApplicationSerializer(serializers.ModelSerializer):
@@ -273,20 +352,29 @@ class ApplicationSerializer(serializers.ModelSerializer):
                 {"salary_max": "Maximum salary must be greater than or equal to minimum salary."}
             )
 
-        custom_data = attrs.get("custom_data")
-        if custom_data:
-            try:
-                validate_custom_data(
-                    custom_data,
-                    self.context["request"].user,
-                    existing_data=(
-                        self.instance.custom_data
-                        if self.instance
-                        else None
-                    ),
+        if "custom_data" in attrs:
+            custom_data = attrs["custom_data"]
+            request = self.context.get("request")
+            if request is None and custom_data == {}:
+                pass
+            elif request is None:
+                raise serializers.ValidationError(
+                    {"custom_data": "A user context is required to validate custom data."}
                 )
-            except CustomDataValidationError as error:
-                raise serializers.ValidationError(error.errors) from error
+            else:
+                try:
+                    validate_custom_data(
+                        custom_data,
+                        request.user,
+                        scope=CustomFieldDefinition.Scope.APPLICATION,
+                        existing_data=(
+                            self.instance.custom_data
+                            if self.instance
+                            else None
+                        ),
+                    )
+                except CustomDataValidationError as error:
+                    raise serializers.ValidationError(error.errors) from error
 
         try:
             cleaned = clean_application_fields(

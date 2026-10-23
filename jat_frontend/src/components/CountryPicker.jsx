@@ -38,6 +38,7 @@ export function CountryPicker({
           aria-controls={`${label.replace(/\s+/g, "-").toLowerCase()}-options`}
           aria-expanded={open && matchingCountries.length > 0}
           autoComplete="off"
+          placeholder="Type to search countries"
           required={!allowAll}
           onBlur={() => window.setTimeout(() => setOpen(false), 100)}
           onChange={(event) => {

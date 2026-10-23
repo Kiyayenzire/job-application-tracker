@@ -8,6 +8,29 @@ from applications.tests.factories import application_values
 
 
 class ApplicationRuleTests(SimpleTestCase):
+    def test_accepts_cefr_language_levels_through_c2(self):
+        values = application_values(
+            english_requirement="Yes",
+            english_level="C2",
+        )
+
+        cleaned = clean_application_fields(**{
+            field: values[field]
+            for field in (
+                "keywords",
+                "english_requirement",
+                "english_level",
+                "german_requirement",
+                "german_level",
+                "other_requirements",
+                "vacancy_status",
+                "outside_eu_response",
+                "hiring_pattern",
+            )
+        })
+
+        self.assertEqual(cleaned["vacancy_status"], "current")
+
     def test_cleans_keyword_and_requirement_lists(self):
         values = application_values(
             keywords=[" python ", "", "django", "react", "mysql", "docker "],
@@ -52,7 +75,7 @@ class ApplicationRuleTests(SimpleTestCase):
             keywords=["python"],
             other_requirements=["python"],
             german_requirement="No",
-            german_level="Beginner",
+            german_level="A1",
         )
 
         with self.assertRaises(ApplicationRuleValidationError) as error:

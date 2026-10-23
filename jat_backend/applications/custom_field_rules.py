@@ -7,10 +7,15 @@ from .models import CustomFieldDefinition
 class CustomDataValidationError(ValueError):
     def __init__(self, errors):
         self.errors = errors
-        super().__init__("Custom application data is invalid.")
+        super().__init__("Custom data is invalid.")
 
 
-def validate_custom_data(custom_data, user, existing_data=None):
+def validate_custom_data(
+    custom_data,
+    user,
+    scope=CustomFieldDefinition.Scope.APPLICATION,
+    existing_data=None,
+):
     if not isinstance(custom_data, dict):
         raise CustomDataValidationError(
             {"custom_data": "Custom data must be an object."}
@@ -18,7 +23,10 @@ def validate_custom_data(custom_data, user, existing_data=None):
 
     definitions = {
         definition.key: definition
-        for definition in CustomFieldDefinition.objects.filter(user=user)
+        for definition in CustomFieldDefinition.objects.filter(
+            user=user,
+            scope=scope,
+        )
     }
     errors = {}
 

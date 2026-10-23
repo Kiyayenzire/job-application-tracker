@@ -47,9 +47,9 @@ describe("application form rules", () => {
         outside_eu_response: "",
         hiring_pattern: "",
         english_requirement: "Yes",
-        english_level: "Advanced",
+        english_level: "B2",
         german_requirement: "No",
-        german_level: "Beginner",
+        german_level: "A1",
         custom_requirement: "unused form state",
       }),
     ).toEqual({
@@ -58,7 +58,7 @@ describe("application form rules", () => {
       outside_eu_response: "",
       hiring_pattern: "",
       english_requirement: "Yes",
-      english_level: "Advanced",
+      english_level: "B2",
       german_requirement: "No",
       german_level: "",
     });
