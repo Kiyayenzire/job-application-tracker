@@ -2,6 +2,9 @@
 
 Tracker for company research and job applications, built with Django, React, MySQL, Git, and Docker.
 
+Deployment, architecture, local development, environment configuration, and
+operational runbooks are documented in [`docs/README.md`](docs/README.md).
+
 ## Company Research and Applications
 
 After login, users land on the **Applications** page. Company intelligence is
