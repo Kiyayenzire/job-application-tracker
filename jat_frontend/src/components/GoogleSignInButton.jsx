@@ -90,7 +90,7 @@ export function GoogleSignInButton({
           className="google-sign-in-unavailable-button"
           onClick={() =>
             setError(
-              "Google sign-in is not configured. Set VITE_GOOGLE_CLIENT_ID to enable it.",
+              "Google sign-in is not configured. Set GOOGLE_OAUTH_CLIENT_ID on the server and redeploy the frontend.",
             )
           }
           type="button"

@@ -121,7 +121,7 @@ describe("CreateAccountPage", () => {
     await userEvent.click(googleButton);
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      /google sign-in is not configured/i,
+      /set GOOGLE_OAUTH_CLIENT_ID on the server and redeploy the frontend/i,
     );
     expect(authApi.loginWithGoogle).not.toHaveBeenCalled();
   });

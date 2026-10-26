@@ -104,7 +104,9 @@ jobs:
           script: |
             set -eu
             cd /home/deploy/job-application-tracker
+            git pull --ff-only origin main
             docker compose -f docker-compose.yml config --quiet
             frontend_image=$(docker compose -f docker-compose.yml config --images | awk '/jat_frontend/ { print; exit }')
             test -n "$frontend_image"
+            docker build --tag "$frontend_image" ./jat_frontend
             docker compose -f docker-compose.yml up -d --remove-orphans
