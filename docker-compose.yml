@@ -19,6 +19,10 @@ services:
 
   migration:
     image: ghcr.io/kiyayenzire/jat_backend:${IMAGE_TAG:-latest}
+    build:
+      context: ./jat_backend
+      args:
+        REQUIREMENTS_FILE: requirements/prod.txt
     container_name: jat_migration
     command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput"
     env_file:
@@ -31,6 +35,10 @@ services:
 
   backend:
     image: ghcr.io/kiyayenzire/jat_backend:${IMAGE_TAG:-latest}
+    build:
+      context: ./jat_backend
+      args:
+        REQUIREMENTS_FILE: requirements/prod.txt
     container_name: jat_backend
     restart: always
     ports:
@@ -48,12 +56,15 @@ services:
 
   frontend:
     image: ghcr.io/kiyayenzire/jat_frontend:${IMAGE_TAG:-latest}
+    build:
+      context: ./jat_frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
     container_name: jat_frontend
     restart: always
     ports:
       - "127.0.0.1:5177:5177"
-    env_file:
-      - .env
     depends_on:
       - backend
 

@@ -176,7 +176,9 @@ Before production launch:
 7. Configure a Google OAuth Web client with the site's JavaScript origin and
    set its client ID in production `.env` as `GOOGLE_OAUTH_CLIENT_ID`. For
    local sign-in, configure localhost port `5177` and set
-   `GOOGLE_OAUTH_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` in `.env.dev`.
+   `GOOGLE_OAUTH_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` in `.env.dev`. The
+   production Compose build passes `GOOGLE_OAUTH_CLIENT_ID` to the frontend
+   build as `VITE_GOOGLE_CLIENT_ID`, so rebuild the frontend after changing it.
 
 ## DigitalOcean Deployment
 

@@ -54,29 +54,27 @@ values or commit `.env`. Set `DJANGO_ALLOWED_HOSTS` to the public domain and
 `VITE_API_BASE_URL` empty so the browser uses the same-origin API proxy.
 `DJANGO_ADMIN_URL` configures both the Django route and the frontend Nginx
 proxy path; it must be a path segment with no leading or trailing slash.
-Set both `GOOGLE_OAUTH_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` in the server's
-`.env` to the same Google OAuth Web client ID. The first configures Django's
-server-side ID-token verification; the second is embedded in the production
-frontend so Google's sign-in button can initialize. These are client IDs, not
-client secrets, and are intended to be public. No Google client secret is
-needed because Django verifies Google's signed ID tokens against the configured
-client ID.
+Set `GOOGLE_OAUTH_CLIENT_ID` in the server's `.env` to the Google OAuth Web
+client ID. Production Compose passes it to Django for server-side ID-token
+verification and to the frontend build as `VITE_GOOGLE_CLIENT_ID`. The frontend
+is a static bundle, so setting a container runtime variable alone is not enough:
+the frontend image must be rebuilt after changing the client ID. This client ID
+is public; a Google client secret is not needed for this sign-in flow.
 
 ```dotenv
 GOOGLE_OAUTH_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
-VITE_GOOGLE_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
 ```
 
 In Google Cloud Console, configure an OAuth client of type **Web application**
 and add the deployment site's HTTPS origin under **Authorized JavaScript
-origins**. For local testing, also add `http://localhost:5177`. Add the
-matching client ID to `GOOGLE_OAUTH_CLIENT_ID` in the server's `.env`, and to
-both `GOOGLE_OAUTH_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` in the development
-`.env.dev`. Rebuild the frontend after changing the production client ID.
-The deployment command rebuilds the frontend so the configured client ID is
-picked up. The Google button is visible and enabled on both login and account
-creation; if the client ID is missing, clicking it reports the missing
-configuration while username/password authentication remains available.
+origins**. For local testing, also add `http://localhost:5177`. Set the matching
+ID as `GOOGLE_OAUTH_CLIENT_ID` in the server `.env`, and set both
+`GOOGLE_OAUTH_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` in the development
+`.env.dev`. The production deployment builds images from this checkout, and
+Compose supplies the server client ID to the frontend build. The Google button
+is available on both login and account creation; if the client ID is missing,
+clicking it reports the missing configuration while username/password
+authentication remains available.
 
 Keep HSTS disabled initially. After HTTPS and redirects have been verified
 end-to-end, set `SECURE_HSTS_SECONDS=31536000`. Enable
