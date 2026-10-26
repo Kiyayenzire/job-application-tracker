@@ -14,6 +14,7 @@ import { CreateAccountPage } from "./CreateAccountPage";
 describe("CreateAccountPage", () => {
   afterEach(() => {
     delete window.google;
+    delete window.__JAT_CONFIG__;
     localStorage.clear();
     vi.clearAllMocks();
   });
@@ -63,6 +64,31 @@ describe("CreateAccountPage", () => {
 
     expect(authApi.loginWithGoogle).toHaveBeenCalledWith("google-id-token");
     expect(localStorage.getItem("authToken")).toBe("google-app-token");
+  });
+
+  it("uses the Google client ID supplied by the frontend runtime config", async () => {
+    window.__JAT_CONFIG__ = {
+      googleClientId: "runtime-google-client",
+    };
+    const initialize = vi.fn();
+    window.google = {
+      accounts: {
+        id: {
+          initialize,
+          renderButton: vi.fn(),
+        },
+      },
+    };
+
+    render(<CreateAccountPage onAuthenticated={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(initialize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          client_id: "runtime-google-client",
+        }),
+      ),
+    );
   });
 
   it("keeps the Google button enabled and explains missing configuration", async () => {

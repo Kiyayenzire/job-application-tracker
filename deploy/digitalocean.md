@@ -3,9 +3,9 @@
 This guide deploys the production Docker Compose stack on a Droplet. GitHub
 Actions runs the backend and frontend tests for pull requests to `main`. After
 those checks pass for a push to `main`, it connects to the Droplet over SSH,
-updates the checkout at `/opt/job-application-tracker`, builds the images, and
-recreates the Compose services. Images are built on the Droplet; GHCR is not
-used.
+updates the checkout at `/home/deploy/job-application-tracker`, builds the
+frontend image locally, and recreates the Compose services. The backend image
+is pulled from GHCR.
 
 ## 1. Create and secure the Droplet
 
@@ -19,7 +19,7 @@ used.
    is configured and firewalled too.
 5. Install Docker Engine and the Docker Compose plugin, plus Caddy on the host
    for automatic HTTPS.
-6. Clone this repository to `/opt/job-application-tracker`, check out `main`,
+6. Clone this repository to `/home/deploy/job-application-tracker`, check out `main`,
    and ensure the deployment user can run Docker and access the checkout.
    Create the production `.env` in this directory on the server.
 
@@ -56,10 +56,12 @@ values or commit `.env`. Set `DJANGO_ALLOWED_HOSTS` to the public domain and
 proxy path; it must be a path segment with no leading or trailing slash.
 Set `GOOGLE_OAUTH_CLIENT_ID` in the server's `.env` to the Google OAuth Web
 client ID. Production Compose passes it to Django for server-side ID-token
-verification and to the frontend build as `VITE_GOOGLE_CLIENT_ID`. The frontend
-is a static bundle, so setting a container runtime variable alone is not enough:
-the frontend image must be rebuilt after changing the client ID. This client ID
-is public; a Google client secret is not needed for this sign-in flow.
+verification and to the frontend container at runtime. The frontend writes
+that value into a small runtime config file when its container starts, so the
+Google client ID does not need to be present during the static asset build. The
+deployment workflow rebuilds the frontend image from the server checkout before
+restarting the services. This client ID is public; a Google client secret is
+not needed for this sign-in flow.
 
 ```dotenv
 GOOGLE_OAUTH_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
@@ -70,11 +72,12 @@ and add the deployment site's HTTPS origin under **Authorized JavaScript
 origins**. For local testing, also add `http://localhost:5177`. Set the matching
 ID as `GOOGLE_OAUTH_CLIENT_ID` in the server `.env`, and set both
 `GOOGLE_OAUTH_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID` in the development
-`.env.dev`. The production deployment builds images from this checkout, and
-Compose supplies the server client ID to the frontend build. The Google button
-is available on both login and account creation; if the client ID is missing,
-clicking it reports the missing configuration while username/password
-authentication remains available.
+`.env.dev`. The deployment workflow rebuilds the frontend image from the server
+checkout. Compose supplies the ID to the frontend container at runtime, and the
+page loads it before the app starts. The Google button is available on both
+login and account creation; if the client ID is missing, clicking it reports
+the missing configuration while username/password authentication remains
+available.
 
 Keep HSTS disabled initially. After HTTPS and redirects have been verified
 end-to-end, set `SECURE_HSTS_SECONDS=31536000`. Enable
@@ -99,11 +102,14 @@ uses `X-Forwarded-Proto` to recognize HTTPS behind Nginx.
 
 ## 4. Start and verify
 
-From the repository directory:
+From the repository directory, build the frontend image using the image name
+from Compose, then start the services:
 
 ```sh
 docker compose -f docker-compose.yml config --quiet
-docker compose -f docker-compose.yml up --build -d
+frontend_image=$(docker compose -f docker-compose.yml config --images | grep 'jat_frontend' | head -n 1)
+docker build --tag "$frontend_image" ./jat_frontend
+docker compose -f docker-compose.yml up -d --remove-orphans
 docker compose -f docker-compose.yml ps
 docker compose -f docker-compose.yml logs --tail=100 backend frontend db
 ```
@@ -138,7 +144,9 @@ For a source-based update, fetch the reviewed revision and rebuild:
 
 ```sh
 git pull --ff-only
-docker compose -f docker-compose.yml up --build -d
+frontend_image=$(docker compose -f docker-compose.yml config --images | grep 'jat_frontend' | head -n 1)
+docker build --tag "$frontend_image" ./jat_frontend
+docker compose -f docker-compose.yml up -d --remove-orphans
 docker compose -f docker-compose.yml logs --tail=100 backend
 ```
 

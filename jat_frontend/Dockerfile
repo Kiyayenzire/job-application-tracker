@@ -15,6 +15,8 @@ RUN npm run build
 FROM nginx:1.27-alpine
 
 COPY nginx.conf /etc/nginx/templates/default.conf.template
+COPY docker-entrypoint.d/30-runtime-config.sh /docker-entrypoint.d/30-runtime-config.sh
+RUN chmod +x /docker-entrypoint.d/30-runtime-config.sh
 COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 5177

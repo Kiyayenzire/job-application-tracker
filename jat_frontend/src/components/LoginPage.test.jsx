@@ -14,6 +14,7 @@ import { LoginPage } from "./LoginPage";
 describe("LoginPage Google sign-in", () => {
   afterEach(() => {
     delete window.google;
+    delete window.__JAT_CONFIG__;
     localStorage.clear();
     vi.unstubAllEnvs();
     vi.clearAllMocks();
@@ -64,6 +65,31 @@ describe("LoginPage Google sign-in", () => {
       id: 5,
       username: "google-user",
     });
+  });
+
+  it("uses the Google client ID supplied by the frontend runtime config", async () => {
+    window.__JAT_CONFIG__ = {
+      googleClientId: "runtime-google-client",
+    };
+    const initialize = vi.fn();
+    window.google = {
+      accounts: {
+        id: {
+          initialize,
+          renderButton: vi.fn(),
+        },
+      },
+    };
+
+    render(<LoginPage onAuthenticated={vi.fn()} />);
+
+    await waitFor(() =>
+      expect(initialize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          client_id: "runtime-google-client",
+        }),
+      ),
+    );
   });
 
   it("keeps the Google button enabled and explains missing configuration", async () => {

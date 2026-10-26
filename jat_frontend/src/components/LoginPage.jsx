@@ -5,7 +5,7 @@ import { GoogleSignInButton } from "./GoogleSignInButton";
 
 export function LoginPage({
   onAuthenticated,
-  googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID,
+  googleClientId,
 }) {
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");

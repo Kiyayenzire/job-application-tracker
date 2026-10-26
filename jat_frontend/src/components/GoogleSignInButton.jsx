@@ -35,7 +35,9 @@ function loadGoogleIdentity() {
 }
 
 export function GoogleSignInButton({
-  clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID,
+  clientId =
+    window.__JAT_CONFIG__?.googleClientId ||
+    import.meta.env.VITE_GOOGLE_CLIENT_ID,
   onCredential,
 }) {
   const buttonRef = React.useRef(null);
