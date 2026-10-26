@@ -106,6 +106,12 @@ jobs:
             cd /home/deploy/job-application-tracker
             git pull --ff-only origin main
             docker compose -f docker-compose.yml config --quiet
+            backend_image=$(docker compose -f docker-compose.yml config --images | awk '/jat_backend/ { print; exit }')
+            test -n "$backend_image"
+            docker build \
+              --build-arg REQUIREMENTS_FILE=requirements/prod.txt \
+              --tag "$backend_image" \
+              ./jat_backend
             frontend_image=$(docker compose -f docker-compose.yml config --images | awk '/jat_frontend/ { print; exit }')
             test -n "$frontend_image"
             docker build --tag "$frontend_image" ./jat_frontend

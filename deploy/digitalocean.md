@@ -4,8 +4,8 @@ This guide deploys the production Docker Compose stack on a Droplet. GitHub
 Actions runs the backend and frontend tests for pull requests to `main`. After
 those checks pass for a push to `main`, it connects to the Droplet over SSH,
 updates the checkout at `/home/deploy/job-application-tracker`, builds the
-frontend image locally, and recreates the Compose services. The backend image
-is pulled from GHCR.
+production backend and frontend images locally, and recreates the Compose
+services.
 
 ## 1. Create and secure the Droplet
 
@@ -103,10 +103,13 @@ uses `X-Forwarded-Proto` to recognize HTTPS behind Nginx.
 ## 4. Start and verify
 
 From the repository directory, build the frontend image using the image name
-from Compose, then start the services:
+names from Compose using the production requirements for the backend, then
+start the services:
 
 ```sh
 docker compose -f docker-compose.yml config --quiet
+backend_image=$(docker compose -f docker-compose.yml config --images | grep 'jat_backend' | head -n 1)
+docker build --build-arg REQUIREMENTS_FILE=requirements/prod.txt --tag "$backend_image" ./jat_backend
 frontend_image=$(docker compose -f docker-compose.yml config --images | grep 'jat_frontend' | head -n 1)
 docker build --tag "$frontend_image" ./jat_frontend
 docker compose -f docker-compose.yml up -d --remove-orphans
@@ -144,6 +147,8 @@ For a source-based update, fetch the reviewed revision and rebuild:
 
 ```sh
 git pull --ff-only
+backend_image=$(docker compose -f docker-compose.yml config --images | grep 'jat_backend' | head -n 1)
+docker build --build-arg REQUIREMENTS_FILE=requirements/prod.txt --tag "$backend_image" ./jat_backend
 frontend_image=$(docker compose -f docker-compose.yml config --images | grep 'jat_frontend' | head -n 1)
 docker build --tag "$frontend_image" ./jat_frontend
 docker compose -f docker-compose.yml up -d --remove-orphans
