@@ -70,17 +70,14 @@ def create_loggers(logs_dir: Path = LOGS_DIR) -> tuple[logging.Logger, logging.L
 
     logger.setLevel(logging.INFO)
     
-    # File handler for startup logs
     startup_file = logging.FileHandler(startup_log, encoding="utf-8")
     startup_file.setFormatter(formatter)
     logger.addHandler(startup_file)
 
-    # Console stream handler so logs print live in PowerShell
     startup_console = logging.StreamHandler()
     startup_console.setFormatter(formatter)
     logger.addHandler(startup_console)
 
-    # Error logger setup
     error_file = logging.FileHandler(error_log, encoding="utf-8")
     error_file.setFormatter(formatter)
     error_logger.addHandler(error_file)
@@ -108,6 +105,21 @@ def get_operating_system() -> str:
 def command_exists(command: str) -> bool:
     """Return True if a command exists in PATH."""
     return shutil.which(command) is not None
+
+
+def ensure_port_available(port: int = 8007) -> None:
+    """Ensure the local development port is free by terminating any lingering holders."""
+    logger.info("Ensuring port %s is available...", port)
+    if platform.system() == "Windows":
+        try:
+            cmd = f"Get-NetTCPConnection -LocalPort {port} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess"
+            res = subprocess.run(["powershell", "-Command", cmd], capture_output=True, text=True, shell=False)
+            pids = {line.strip() for line in res.stdout.splitlines() if line.strip().isdigit()}
+            for pid in pids:
+                logger.warning("Port %s is currently held by PID %s. Freeing port...", port, pid)
+                subprocess.run(["taskkill", "/F", "/PID", pid], capture_output=True, shell=False)
+        except Exception as exc:
+            logger.debug("Could not automatically inspect/free port %s: %s", port, exc)
 
 
 def run_command(
@@ -189,11 +201,6 @@ def start_docker(os_name: str) -> bool:
         return launch_gui_app([docker_desktop], os_name)
 
     elif os_name == "macOS":
-        if not MACOS_DOCKER_DESKTOP.exists():
-            msg = f"Docker Desktop was not found at: {MACOS_DOCKER_DESKTOP}"
-            logger.error(msg)
-            error_logger.error(msg)
-            return False
         return launch_gui_app(["open", "-a", "Docker"], os_name)
 
     elif os_name == "Linux":
@@ -204,25 +211,40 @@ def start_docker(os_name: str) -> bool:
 
 
 # ============================================================
-# STEP 2: OPEN VS CODE
+# STEP 2: OPEN VS CODE (SILENT BACKGROUND LAUNCH)
 # ============================================================
 def open_vscode(os_name: str) -> bool:
-    """Open VS Code targeting the current project directory."""
+    """Open VS Code targeting the current project directory silently."""
     logger.info("[2] Opening VS Code...")
 
-    command = shutil.which("code.cmd" if os_name == "Windows" else VSCODE_COMMAND) or shutil.which("code")
-    if command is None:
+    code_path = shutil.which("code") or shutil.which("code.cmd")
+    if code_path is None:
         msg = "VS Code command 'code' or 'code.cmd' was not found in PATH."
         logger.warning(msg)
         error_logger.warning(msg)
         return False
 
-    if os_name == "Windows" and Path(command).suffix.lower() in {".cmd", ".bat"}:
-        launch_cmd = ["cmd.exe", "/c", "start", "", command, PROJECT_DIR]
-    else:
-        launch_cmd = [command, PROJECT_DIR]
+    kwargs: dict[str, int | bool | None] = {
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
 
-    return launch_gui_app(launch_cmd, os_name)
+    if os_name == "Windows":
+        detached = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+        new_group = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
+        no_window = 0x08000000  # CREATE_NO_WINDOW
+        kwargs["creationflags"] = detached | new_group | no_window
+        launch_cmd = [code_path, str(PROJECT_DIR)]
+    else:
+        launch_cmd = [code_path, str(PROJECT_DIR)]
+
+    try:
+        subprocess.Popen(launch_cmd, **kwargs)
+    except OSError as exc:
+        logger.error("Unable to launch VS Code: %s", exc)
+        error_logger.exception("Unable to launch VS Code.")
+        return False
+    return True
 
 
 # ============================================================
@@ -307,8 +329,39 @@ def verify_compose_available() -> bool:
 # STEPS 6 & 7: START COMPOSE & CHECK STATUS
 # ============================================================
 def start_compose() -> bool:
-    """Start and reconcile Docker Compose containers, removing orphans."""
-    logger.info("[6] Starting/reconciling Docker Compose containers...")
+    """Start database first, wait for true container health, then start the rest of the stack."""
+    # Ensure port 8007 is clear of lingering sockets before starting compose
+    ensure_port_available(8007)
+
+    logger.info("[6] Starting database container first...")
+    db_result = run_command(["docker", "compose", "up", "-d", "db"])
+    if db_result.returncode != 0:
+        logger.error("Failed to start database service.")
+        return False
+
+    logger.info("Waiting for database container (jat_db) to become fully healthy...")
+    start_time = time.monotonic()
+    while time.monotonic() - start_time < 120:
+        try:
+            inspect_result = subprocess.run(
+                ["docker", "inspect", "--format", "{{.State.Health.Status}}", "jat_db"],
+                capture_output=True,
+                text=True,
+                shell=False,
+            )
+            health = inspect_result.stdout.strip()
+            if health == "healthy":
+                logger.info("Database container is healthy and ready.")
+                break
+            logger.info("Database health status: '%s'. Waiting...", health or "starting")
+        except Exception:
+            pass
+        time.sleep(3)
+    else:
+        logger.error("Database did not become healthy within the timeout period.")
+        return False
+
+    logger.info("Starting remaining Docker Compose containers (migrations, backend, frontend)...")
     result = run_command(["docker", "compose", "up", "-d", "--remove-orphans"], timeout=600)
     if result.returncode != 0:
         logger.error("Docker Compose failed to start/reconcile the containers.")

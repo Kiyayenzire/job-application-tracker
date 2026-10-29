@@ -8,6 +8,12 @@ services:
     restart: unless-stopped
 
   migration:
+    image: job-application-tracker-backend:dev
+    build:
+      context: ./jat_backend
+      dockerfile: Dockerfile
+      args:
+        REQUIREMENTS_FILE: requirements/dev.txt
     env_file:
       - .env.dev
     environment:
@@ -16,26 +22,18 @@ services:
       DB_NAME: job_tracker_dev
       DB_USER: job_tracker_dev
       DB_PASSWORD: local-development-only-password
-    command: >
-      sh -c "
-      echo 'Waiting for database connection...' &&
-      python -c \"import time, socket; 
-      exec('''
-      while True:
-          try:
-              socket.create_connection(('db', 3306), timeout=2)
-              print('Database connection successful!')
-              break
-          except OSError:
-              time.sleep(1)
-      ''')\" &&
-      python manage.py migrate --noinput &&
-      python manage.py collectstatic --noinput
-      "
+    volumes:
+      - ./jat_backend:/app
+    command: python manage.py migrate --noinput
+    depends_on:
+      db:
+        condition: service_healthy
 
   backend:
     image: job-application-tracker-backend:dev
     build:
+      context: ./jat_backend
+      dockerfile: Dockerfile
       args:
         REQUIREMENTS_FILE: requirements/dev.txt
     env_file:
