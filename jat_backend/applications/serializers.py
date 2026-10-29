@@ -2,6 +2,7 @@
 
 from rest_framework import serializers
 from django.db.models import Q
+from django.utils import timezone
 from django.utils.text import slugify
 
 from .application_rules import (
@@ -14,10 +15,35 @@ from .custom_field_rules import (
 )
 from .models import (
     Application,
+    ApplicationAssessment,
     CandidateCV,
     Company,
     CustomFieldDefinition,
 )
+
+ESSENTIAL_ASSESSMENT_KEYS = {
+    "career_growth",
+    "technical_challenge",
+    "team_management",
+    "ownership",
+    "company_growth",
+    "relocation",
+    "role_fit",
+}
+
+NICE_TO_HAVE_ASSESSMENT_KEYS = {
+    "salary_benefits",
+    "technology_stack",
+    "product_interest",
+    "work_flexibility",
+    "learning_resources",
+    "company_reputation",
+    "employee_retention",
+    "international_culture",
+    "future_mobility",
+    "location_commute",
+    "interview_experience",
+}
 
 
 class CompanySerializer(serializers.ModelSerializer):
@@ -397,3 +423,97 @@ class ApplicationSerializer(serializers.ModelSerializer):
         attrs.update(cleaned)
 
         return attrs
+
+
+class ApplicationAssessmentSerializer(serializers.ModelSerializer):
+    application = serializers.IntegerField(source="application_id", read_only=True)
+    essential_score = serializers.SerializerMethodField()
+    nice_to_have_score = serializers.SerializerMethodField()
+    essential_scores = serializers.JSONField(required=False)
+    nice_to_have_scores = serializers.JSONField(required=False)
+
+    class Meta:
+        model = ApplicationAssessment
+        fields = [
+            "id",
+            "application",
+            "status",
+            "essential_scores",
+            "nice_to_have_scores",
+            "essential_score",
+            "nice_to_have_score",
+            "evidence_notes",
+            "outstanding_questions",
+            "red_flags_concerns",
+            "career_growth_outlook",
+            "relocation_feasibility",
+            "final_assessment",
+            "last_assessed_date",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "application",
+            "essential_score",
+            "nice_to_have_score",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate_essential_scores(self, value):
+        return self._validate_scores(value, ESSENTIAL_ASSESSMENT_KEYS)
+
+    def validate_nice_to_have_scores(self, value):
+        return self._validate_scores(value, NICE_TO_HAVE_ASSESSMENT_KEYS)
+
+    @staticmethod
+    def _validate_scores(value, allowed_keys):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Scores must be an object.")
+
+        errors = {}
+        for key, score in value.items():
+            if key not in allowed_keys:
+                errors[key] = "Unknown assessment parameter."
+            elif score is not None and (
+                isinstance(score, bool)
+                or not isinstance(score, int)
+                or not 1 <= score <= 5
+            ):
+                errors[key] = "Score must be an integer from 1 to 5 or null."
+        if errors:
+            raise serializers.ValidationError(errors)
+        return value
+
+    @staticmethod
+    def _average_score(scores):
+        assessed_scores = [
+            score
+            for score in scores.values()
+            if isinstance(score, int) and not isinstance(score, bool)
+        ]
+        if not assessed_scores:
+            return None
+        return round(sum(assessed_scores) / len(assessed_scores), 2)
+
+    def get_essential_score(self, instance):
+        return self._average_score(instance.essential_scores)
+
+    def get_nice_to_have_score(self, instance):
+        return self._average_score(instance.nice_to_have_scores)
+
+    def create(self, validated_data):
+        validated_data.setdefault("last_assessed_date", timezone.localdate())
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.setdefault("last_assessed_date", timezone.localdate())
+        if self.partial:
+            for field in ("essential_scores", "nice_to_have_scores"):
+                if field in validated_data:
+                    validated_data[field] = {
+                        **getattr(instance, field),
+                        **validated_data[field],
+                    }
+        return super().update(instance, validated_data)

@@ -19,6 +19,7 @@
 
 ## Reference
 
+- [Employer assessments](./reference/employer-assessments.md)
 - [Security policies](./reference/security-policies.md)
 - [Troubleshooting](./reference/troubleshooting.md)
 

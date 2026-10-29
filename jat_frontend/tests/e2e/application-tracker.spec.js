@@ -1,6 +1,6 @@
 import { expect, test } from "../fixtures.js";
 
-test("login redirects to applications and company research has its own page", async ({ page }) => {
+test("login redirects to applications and company and assessment pages are separate", async ({ page }) => {
   await page.route("**/api/auth/login/", (route) => route.fulfill({
     json: { token: "login-test-token", user: { id: 1, username: "login-user" } },
   }));
@@ -30,6 +30,7 @@ test("login redirects to applications and company research has its own page", as
   await expect(page.getByRole("heading", { name: "Job applications" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Applications" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Companies" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Assessments" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Profile" })).toBeVisible();
   await expect(page.getByRole("link", { name: "CV" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Help & Support" })).toBeVisible();
@@ -39,6 +40,10 @@ test("login redirects to applications and company research has its own page", as
   await expect(page).toHaveURL(/\/companies$/);
   await expect(page.getByRole("heading", { name: "Company intelligence" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Job applications" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Assessments" }).click();
+  await expect(page).toHaveURL(/\/assessments$/);
+  await expect(page.getByRole("heading", { name: "Employer assessment" })).toBeVisible();
+  await expect(page.getByText(/add a job application before creating an employer assessment/i)).toBeVisible();
   await page.getByRole("link", { name: "Applications" }).click();
   await expect(page).toHaveURL(/\/applications$/);
 });

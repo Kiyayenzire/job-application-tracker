@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import Application, Company, CustomFieldDefinition, TrackingProfile
+from .models import (
+    Application,
+    ApplicationAssessment,
+    Company,
+    CustomFieldDefinition,
+    TrackingProfile,
+)
 
 
 admin.site.site_header = "Job Application Tracker"
@@ -33,6 +39,25 @@ class ApplicationAdmin(admin.ModelAdmin):
         "german_requirement",
     )
     search_fields = ("company_name", "job_title", "keywords", "other_requirements", "notes")
+
+
+@admin.register(ApplicationAssessment)
+class ApplicationAssessmentAdmin(admin.ModelAdmin):
+    list_display = (
+        "application",
+        "status",
+        "career_growth_outlook",
+        "relocation_feasibility",
+        "final_assessment",
+        "last_assessed_date",
+    )
+    list_filter = (
+        "status",
+        "career_growth_outlook",
+        "relocation_feasibility",
+        "final_assessment",
+    )
+    search_fields = ("application__company_name", "application__job_title")
 
 
 @admin.register(Company)

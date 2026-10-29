@@ -13,12 +13,13 @@ from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2 import id_token
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import (
     Application,
+    ApplicationAssessment,
     CandidateCV,
     Company,
     CustomFieldDefinition,
@@ -28,6 +29,7 @@ from .models import (
 from .country_options import COUNTRY_OPTIONS
 from .serializers import (
     ApplicationSerializer,
+    ApplicationAssessmentSerializer,
     CandidateCVSerializer,
     CompanySerializer,
     CustomFieldDefinitionSerializer,
@@ -84,6 +86,27 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=["get", "put", "patch"])
+    def assessment(self, request, pk=None):
+        application = self.get_object()
+        try:
+            assessment = application.assessment
+        except ApplicationAssessment.DoesNotExist:
+            assessment = ApplicationAssessment(application=application)
+
+        if request.method == "GET":
+            serializer = ApplicationAssessmentSerializer(assessment)
+            return Response(serializer.data)
+
+        serializer = ApplicationAssessmentSerializer(
+            assessment,
+            data=request.data,
+            partial=request.method == "PATCH",
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 
 class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):

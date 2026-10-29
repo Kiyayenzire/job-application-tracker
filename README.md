@@ -59,6 +59,10 @@ tracked application roles and keywords as a starting point and download the
 current CV as Word (`.docx`) or PDF. Help & Support links to
 `zoelewis.58@gmail.com`.
 
+The **Assessments** page provides a separate employer assessment for each job
+application, with essential and nice-to-have criteria, optional 1-5 scores,
+evidence, open questions, concerns, and an overall fit decision.
+
 The country picker includes the ISO 3166-1 country and territory list. Type
 the beginning of a country name to narrow the suggestions (for example, `u`
 shows Uganda, Ukraine, and countries beginning with "United").

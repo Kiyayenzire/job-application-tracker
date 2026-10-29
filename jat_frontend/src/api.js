@@ -106,6 +106,40 @@ export async function updateApplication(id, payload) {
   return data;
 }
 
+export async function getApplicationAssessment(applicationId) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/applications/${applicationId}/assessment/`,
+    { headers: authHeaders() },
+  );
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw Object.assign(new Error(data.detail || "Unable to load assessment"), {
+      details: data,
+      status: response.status,
+    });
+  }
+  return data;
+}
+
+export async function saveApplicationAssessment(applicationId, payload) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/applications/${applicationId}/assessment/`,
+    {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    },
+  );
+  const data = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw Object.assign(new Error(data.detail || "Unable to save assessment"), {
+      details: data,
+      status: response.status,
+    });
+  }
+  return data;
+}
+
 export async function deleteApplication(id) {
   const response = await fetch(`${API_BASE_URL}/api/applications/${id}/`, {
     method: "DELETE",

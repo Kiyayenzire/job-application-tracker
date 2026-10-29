@@ -482,3 +482,71 @@ class Application(models.Model):
         self.vacancy_status = cleaned["vacancy_status"]
         self.outside_eu_response = cleaned["outside_eu_response"]
         self.hiring_pattern = cleaned["hiring_pattern"]
+
+
+class ApplicationAssessment(models.Model):
+    class Status(models.TextChoices):
+        NOT_STARTED = "not_started", "Not Started"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+
+    class CareerGrowthOutlook(models.TextChoices):
+        STRONG = "strong", "Strong"
+        MODERATE = "moderate", "Moderate"
+        LIMITED = "limited", "Limited"
+        UNKNOWN = "unknown", "Unknown"
+
+    class RelocationFeasibility(models.TextChoices):
+        CONFIRMED = "confirmed", "Confirmed"
+        NEEDS_VERIFICATION = "needs_verification", "Needs Verification"
+        UNCLEAR = "unclear", "Unclear"
+        NOT_FEASIBLE = "not_feasible", "Not Feasible"
+
+    class FinalAssessment(models.TextChoices):
+        STRONG_FIT = "strong_fit", "Strong Fit"
+        POTENTIAL_FIT = "potential_fit", "Potential Fit"
+        FURTHER_INVESTIGATION = (
+            "further_investigation",
+            "Further Investigation",
+        )
+        POOR_FIT = "poor_fit", "Poor Fit"
+
+    application = models.OneToOneField(
+        Application,
+        on_delete=models.CASCADE,
+        related_name="assessment",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.NOT_STARTED,
+    )
+    essential_scores = models.JSONField(default=dict, blank=True)
+    nice_to_have_scores = models.JSONField(default=dict, blank=True)
+    evidence_notes = models.TextField(blank=True)
+    outstanding_questions = models.TextField(blank=True)
+    red_flags_concerns = models.TextField(blank=True)
+    career_growth_outlook = models.CharField(
+        max_length=20,
+        choices=CareerGrowthOutlook.choices,
+        default=CareerGrowthOutlook.UNKNOWN,
+    )
+    relocation_feasibility = models.CharField(
+        max_length=30,
+        choices=RelocationFeasibility.choices,
+        default=RelocationFeasibility.UNCLEAR,
+    )
+    final_assessment = models.CharField(
+        max_length=30,
+        choices=FinalAssessment.choices,
+        default=FinalAssessment.FURTHER_INVESTIGATION,
+    )
+    last_assessed_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["application_id"]
+
+    def __str__(self):
+        return f"Assessment for {self.application}"

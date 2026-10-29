@@ -27,6 +27,7 @@ import {
 } from "./api";
 import { ApplicationForm } from "./components/ApplicationForm";
 import { ApplicationTable } from "./components/ApplicationTable";
+import { AssessmentPage } from "./components/AssessmentPage";
 import { CompanyForm } from "./components/CompanyForm";
 import { CompanyTable } from "./components/CompanyTable";
 import { CreateAccountPage } from "./components/CreateAccountPage";
@@ -398,6 +399,10 @@ function App() {
           )}
         />
         <Route
+          path="/assessments"
+          element={<AssessmentPage applications={applications} />}
+        />
+        <Route
           path="/profile"
           element={<ProfilePage username={user.username} />}
         />
@@ -432,6 +437,9 @@ function AppHeader({
             </NavLink>
             <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/companies">
               Companies
+            </NavLink>
+            <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/assessments">
+              Assessments
             </NavLink>
             <NavLink className={({ isActive }) => isActive ? "active" : ""} to="/profile">
               Profile

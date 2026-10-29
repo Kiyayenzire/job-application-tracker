@@ -41,6 +41,11 @@ associated with the authenticated user. The API uses DRF token authentication
 for application requests. Google sign-in validates the Google ID token on the
 backend and returns the application's own API token.
 
+Employer assessments are stored per application, so separate roles at one
+company can have different scores, evidence, and relocation assessments.
+See the [Employer Assessments guide](../reference/employer-assessments.md) for
+the criteria and workflow.
+
 ## Related references
 
 - [Network topology](./network-topology.md)

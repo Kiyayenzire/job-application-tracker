@@ -7,6 +7,32 @@ services:
       MYSQL_ROOT_PASSWORD: local-development-root-password
     restart: unless-stopped
 
+  migration:
+    env_file:
+      - .env.dev
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: job_tracker_dev
+      DB_USER: job_tracker_dev
+      DB_PASSWORD: local-development-only-password
+    command: >
+      sh -c "
+      echo 'Waiting for database connection...' &&
+      python -c \"import time, socket; 
+      exec('''
+      while True:
+          try:
+              socket.create_connection(('db', 3306), timeout=2)
+              print('Database connection successful!')
+              break
+          except OSError:
+              time.sleep(1)
+      ''')\" &&
+      python manage.py migrate --noinput &&
+      python manage.py collectstatic --noinput
+      "
+
   backend:
     image: job-application-tracker-backend:dev
     build:
